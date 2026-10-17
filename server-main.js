@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = 8080;
+const PORT = parseInt(process.env.PORT) || 8080;
 
 // Game state storage
 const rooms = new Map();

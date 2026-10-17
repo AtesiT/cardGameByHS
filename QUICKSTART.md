@@ -17,6 +17,13 @@ chmod +x start.sh
 ### Или вручную:
 ```bash
 node server.js
+# или
+node server.mjs
+```
+
+### С указанием порта:
+```bash
+node server.mjs 3000  # запустить на порту 3000
 ```
 
 ### Первый запуск

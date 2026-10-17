@@ -1,5 +1,7 @@
 @echo off
 echo 🚀 Запуск Карты Судьбы...
 echo.
-node server.js
+set PORT=%1
+if "%PORT%"=="" set PORT=8080
+node server.js %PORT%
 pause

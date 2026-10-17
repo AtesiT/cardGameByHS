@@ -6,6 +6,10 @@ import path from 'path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Получаем порт из аргументов командной строки или используем 8080
+const PORT = parseInt(process.argv[2]) || 8080;
+process.env.PORT = PORT.toString();
+
 function checkAndInstall() {
   const deps = ['ws', 'vite'];
   const missing = [];

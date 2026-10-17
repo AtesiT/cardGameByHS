@@ -1,4 +1,5 @@
 #!/bin/bash
 echo "🚀 Запуск Карты Судьбы..."
 echo ""
-node server.js
+PORT=${1:-8080}
+node server.js $PORT
