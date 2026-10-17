@@ -261,48 +261,48 @@ export default function App() {
     if (gameState.phase === 'gameOver') return;
     setAnimating(false); // Reset any stuck animation
     audio.playClick();
-    endTurn(gameState);
     
-    // If AI turn, add delay before AI acts
-    if (gameMode === 'ai' && gameState.currentPlayerIndex === 1) {
-      setTimeout(() => {
-        const actions = aiTurn(gameState);
-        setGameState({ ...gameState });
-        // Return control to player after AI finishes
-        setTimeout(() => {
-          setPlayerView(0);
-          setShowTurnBanner(true);
-          setTurnBannerText('Ваш ход!');
-          audio.playTurnStart();
-          setTimeout(() => setShowTurnBanner(false), 1500);
-        }, 500);
-      }, 1500); // AI waits 1.5 seconds before acting
-    }
     const newView = playerView === 0 ? 1 : 0;
+    
+    // End turn and switch player
+    endTurn(gameState);
     setPlayerView(newView as 0 | 1);
     setGameState({ ...gameState });
 
+    // Handle different game modes
     if (gameMode === 'hotseat' && gameState.turnNumber > 1) {
-      // Show pass device screen (not on first turn)
+      // Show pass device screen for hotseat (not on first turn)
       setShowPassDevice(true);
-    } else {
+    } else if (gameMode === 'ai' && newView === 1) {
+      // AI turn - show banner and execute AI after short delay
       setShowTurnBanner(true);
-      setTurnBannerText('Ход противника...');
+      setTurnBannerText('🤖 Ход противника...');
       audio.playTurnStart();
-      setTimeout(() => setShowTurnBanner(false), 1500);
-    }
-
-    if (gameMode === 'ai' && newView === 1) {
+      
+      // AI acts after 800ms delay (not too long, not too short)
       setTimeout(() => {
         aiTurn(gameState);
         setGameState({ ...gameState });
+        
+        // Check if game is over
+        if (gameState.phase === 'gameOver') {
+          checkGameOver(gameState);
+          return;
+        }
+        
+        // Return control to player
         setPlayerView(0);
         setShowTurnBanner(true);
-        setTurnBannerText('Ваш ход!');
+        setTurnBannerText('⚡ Ваш ход!');
         audio.playTurnStart();
-        setTimeout(() => setShowTurnBanner(false), 1500);
-        checkGameOver(gameState);
-      }, 1000);
+        setTimeout(() => setShowTurnBanner(false), 1200);
+      }, 800);
+    } else {
+      // Normal turn transition
+      setShowTurnBanner(true);
+      setTurnBannerText(`${gameState.players[newView].name} — Ваш ход!`);
+      audio.playTurnStart();
+      setTimeout(() => setShowTurnBanner(false), 1200);
     }
   }, [gameState, playerView, animating, gameMode]);
 
