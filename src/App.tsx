@@ -108,7 +108,9 @@ export default function App() {
   }, [gameState, playerView, animating]);
 
   const handleEndTurn = useCallback(() => {
-    if (!gameState || animating) return;
+    if (!gameState) return;
+    if (gameState.phase === 'gameOver') return;
+    setAnimating(false); // Reset any stuck animation
     audio.playClick();
     endTurn(gameState);
     const newView = playerView === 0 ? 1 : 0;

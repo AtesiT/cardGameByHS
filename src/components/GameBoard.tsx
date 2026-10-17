@@ -252,18 +252,18 @@ export default function GameBoard({
             </div>
 
             {/* Controls */}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 relative z-40">
               <button
-                onClick={onEndTurn}
-                disabled={!isMyTurn || animating}
+                onClick={() => { setShowEmotions(false); onEndTurn(); }}
+                disabled={!isMyTurn}
                 className={`px-3 py-2 border-2 text-center transition-all ${
                   isMyTurn
-                    ? 'bg-gradient-to-b from-red-600 to-red-800 border-red-400 hover:from-red-500 hover:to-red-700 text-white'
+                    ? 'bg-gradient-to-b from-red-600 to-red-800 border-red-400 hover:from-red-500 hover:to-red-700 text-white active:scale-95 cursor-pointer'
                     : 'bg-gray-700 border-gray-500 text-gray-400 cursor-not-allowed'
                 }`}
                 style={{ fontSize: '8px' }}
               >
-                {isMyTurn ? 'КОНЕЦ ХОДА' : 'ХОД ПРОТИВНИКА'}
+                {isMyTurn ? '⏭ КОНЕЦ ХОДА' : '⏳ ХОД ПРОТИВНИКА'}
               </button>
               <div className="flex gap-1">
                 <button
@@ -306,7 +306,7 @@ export default function GameBoard({
 
         {/* Emotion picker */}
         {showEmotions && (
-          <div className="absolute bottom-32 left-1/2 -translate-x-1/2 bg-gray-900 border-2 border-purple-400 p-2 flex gap-2 z-30">
+          <div className="absolute bottom-40 left-1/2 -translate-x-1/2 bg-gray-900 border-2 border-purple-400 p-2 flex gap-2 z-30 rounded-lg shadow-lg">
             {emotions.map(e => (
               <button
                 key={e}
