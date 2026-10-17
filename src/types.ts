@@ -20,7 +20,14 @@ export interface CardDef {
   spellHeal?: number;
   spellDraw?: number;
   spellAoEDamage?: number;
+  spellAoEHero?: boolean;
   spellDestroy?: boolean;
+  spellFreeze?: boolean;
+  spellSelfDamage?: number;
+  spellBuffAllFriendly?: boolean;
+  spellBuffHealth?: number;
+  spellBuffAttack?: number;
+  spellRequiresUntapped?: boolean;
   weaponAttack?: number;
   weaponDurability?: number;
   battlecryDesc?: string;
@@ -29,6 +36,7 @@ export interface CardDef {
   buffAttack?: number;
   buffHealth?: number;
   buffAllFriendly?: boolean;
+  class?: string;
 }
 
 export interface CardInstance {
@@ -121,7 +129,7 @@ export interface RoomInfo {
 }
 
 // ============= UI TYPES =============
-export type Screen = 'menu' | 'lobby' | 'waiting' | 'game' | 'collection' | 'result';
+export type Screen = 'menu' | 'lobby' | 'waiting' | 'game' | 'collection' | 'result' | 'deckbuilder' | 'profile' | 'settings';
 export type GameMode = 'hotseat' | 'ai' | 'online';
 
 export interface AnimationEvent {

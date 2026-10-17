@@ -1,16 +1,22 @@
 import { GameMode } from '../types';
 import { DECK_PRESETS } from '../data/cards';
+import { HERO_CLASSES, HeroClass } from '../data/classes';
 import { useState } from 'react';
 
 interface Props {
-  onStartGame: (mode: GameMode, deckPreset?: string) => void;
+  onStartGame: (mode: GameMode, deckPreset?: string, heroClass?: HeroClass) => void;
   onShowCollection: () => void;
   onMultiplayer: () => void;
+  onDeckBuilder: () => void;
+  onProfile: () => void;
+  onSettings: () => void;
 }
 
-export default function MainMenu({ onStartGame, onShowCollection, onMultiplayer }: Props) {
+export default function MainMenu({ onStartGame, onShowCollection, onMultiplayer, onDeckBuilder, onProfile, onSettings }: Props) {
   const [selectedDeck, setSelectedDeck] = useState<keyof typeof DECK_PRESETS>('balanced');
   const [showDeckSelect, setShowDeckSelect] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<HeroClass>('mage');
+  const [showClassSelect, setShowClassSelect] = useState(false);
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-bg-dark px-scanlines">
       {/* Background image */}
@@ -82,20 +88,32 @@ export default function MainMenu({ onStartGame, onShowCollection, onMultiplayer 
 
         {/* Buttons */}
         <div className="flex flex-col gap-4 w-72">
-          <PixelButton onClick={() => onStartGame('hotseat', selectedDeck)} color="green">
+          <PixelButton onClick={() => onStartGame('hotseat', selectedDeck, selectedClass)} color="green">
             🎮 ИГРА ВДВОЁМ
           </PixelButton>
-          <PixelButton onClick={() => onStartGame('ai', selectedDeck)} color="blue">
+          <PixelButton onClick={() => onStartGame('ai', selectedDeck, selectedClass)} color="blue">
             🤖 ПРОТИВ AI
           </PixelButton>
           <PixelButton onClick={onMultiplayer} color="amber">
             🌐 МУЛЬТИПЛЕЕР
           </PixelButton>
+          <PixelButton onClick={() => setShowClassSelect(!showClassSelect)} color="amber">
+            👤 КЛАСС: {HERO_CLASSES[selectedClass].emoji} {HERO_CLASSES[selectedClass].name}
+          </PixelButton>
           <PixelButton onClick={() => setShowDeckSelect(!showDeckSelect)} color="amber">
             📋 КОЛОДА: {DECK_PRESETS[selectedDeck].name}
           </PixelButton>
+          <PixelButton onClick={onDeckBuilder} color="amber">
+            🃏 РЕДАКТОР КОЛОД
+          </PixelButton>
+          <PixelButton onClick={onProfile} color="purple">
+            👤 ПРОФИЛЬ
+          </PixelButton>
           <PixelButton onClick={onShowCollection} color="purple">
             📚 КОЛЛЕКЦИЯ
+          </PixelButton>
+          <PixelButton onClick={onSettings} color="gray">
+            ⚙️ НАСТРОЙКИ
           </PixelButton>
         </div>
 
@@ -114,6 +132,26 @@ export default function MainMenu({ onStartGame, onShowCollection, onMultiplayer 
               >
                 <div className="text-amber-300">{preset.name}</div>
                 <div className="text-gray-400" style={{ fontSize: '6px' }}>{preset.description}</div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Class selection */}
+        {showClassSelect && (
+          <div className="bg-gray-900 border-4 border-amber-500 p-4 w-72 max-h-96 overflow-y-auto">
+            <p className="text-amber-400 mb-3" style={{ fontSize: '8px' }}>ВЫБЕРИТЕ КЛАСС ГЕРОЯ:</p>
+            {Object.values(HERO_CLASSES).map(cls => (
+              <button
+                key={cls.id}
+                onClick={() => { setSelectedClass(cls.id); setShowClassSelect(false); }}
+                className={`w-full text-left px-btn py-2 mb-2 ${
+                  selectedClass === cls.id ? 'bg-amber-800 border-amber-400' : 'bg-gray-800 border-gray-600 hover:bg-gray-700'
+                }`}
+                style={{ fontSize: '7px' }}
+              >
+                <div className="text-amber-300">{cls.emoji} {cls.name}</div>
+                <div className="text-gray-400" style={{ fontSize: '6px' }}>{cls.heroPowerName}: {cls.heroPowerDesc}</div>
               </button>
             ))}
           </div>
@@ -141,6 +179,7 @@ function PixelButton({ children, onClick, color }: { children: React.ReactNode; 
     blue: 'bg-blue-800 border-blue-400 text-blue-100 hover:bg-blue-700',
     purple: 'bg-purple-800 border-purple-400 text-purple-100 hover:bg-purple-700',
     amber: 'bg-amber-800 border-amber-400 text-amber-100 hover:bg-amber-700',
+    gray: 'bg-gray-800 border-gray-400 text-gray-100 hover:bg-gray-700',
   };
 
   return (

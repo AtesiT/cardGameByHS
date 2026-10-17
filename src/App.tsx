@@ -3,6 +3,7 @@ import { GameState, Screen, GameMode, EmotionType } from './types';
 import { createGameState, startGame, playCard, attack, endTurn, useHeroPower, aiTurn } from './engine/GameEngine';
 import { audio } from './audio/AudioEngine';
 import { DECK_PRESETS } from './data/cards';
+import { HeroClass } from './data/classes';
 import MainMenu from './components/MainMenu';
 import GameBoard from './components/GameBoard';
 import Collection from './components/Collection';
@@ -10,6 +11,9 @@ import ResultScreen from './components/ResultScreen';
 import PassDevice from './components/PassDevice';
 import Lobby from './components/Lobby';
 import WaitingRoom from './components/WaitingRoom';
+import DeckBuilder from './components/DeckBuilder';
+import Profile from './components/Profile';
+import Settings from './components/Settings';
 import { DamageNumberDisplay, useDamageNumbers } from './components/DamageNumbers';
 
 export default function App() {
@@ -145,7 +149,7 @@ export default function App() {
     setScreen('menu');
   }, [ws]);
 
-  const startNewGame = useCallback((mode: GameMode, deckPreset?: string) => {
+  const startNewGame = useCallback((mode: GameMode, deckPreset?: string, heroClass?: HeroClass) => {
     audio.resume();
     audio.playClick();
     setGameMode(mode);
@@ -387,6 +391,9 @@ export default function App() {
           onStartGame={startNewGame}
           onShowCollection={() => { audio.playClick(); setScreen('collection'); }}
           onMultiplayer={handleMultiplayer}
+          onDeckBuilder={() => { audio.playClick(); setScreen('deckbuilder'); }}
+          onProfile={() => { audio.playClick(); setScreen('profile'); }}
+          onSettings={() => { audio.playClick(); setScreen('settings'); }}
         />
       )}
 
@@ -448,6 +455,18 @@ export default function App() {
           onPlayAgain={() => startNewGame(gameMode)}
           onMenu={() => { audio.playClick(); setScreen('menu'); setGameState(null); }}
         />
+      )}
+
+      {screen === 'deckbuilder' && (
+        <DeckBuilder onBack={() => { audio.playClick(); setScreen('menu'); }} />
+      )}
+
+      {screen === 'profile' && (
+        <Profile onBack={() => { audio.playClick(); setScreen('menu'); }} />
+      )}
+
+      {screen === 'settings' && (
+        <Settings onBack={() => { audio.playClick(); setScreen('menu'); }} />
       )}
 
       {/* Pass device screen for hotseat */}
