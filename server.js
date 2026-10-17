@@ -1,13 +1,14 @@
-const WebSocket = require('ws');
-const path = require('path');
-const http = require('http');
-const fs = require('fs');
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
+import { createServer as createViteServer } from 'vite';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 8080;
 
 // Game state storage
 const rooms = new Map();
-const players = new Map();
 
 class GameRoom {
   constructor(id, hostName) {
@@ -17,8 +18,6 @@ class GameRoom {
     this.hostName = hostName;
     this.guestName = null;
     this.gameState = null;
-    this.hostReady = false;
-    this.guestReady = false;
   }
 
   addPlayer(ws, playerName) {
@@ -27,11 +26,13 @@ class GameRoom {
       this.hostName = playerName;
       ws.playerIndex = 0;
       ws.roomId = this.id;
+      ws.playerName = playerName;
     } else if (!this.guest) {
       this.guest = ws;
       this.guestName = playerName;
       ws.playerIndex = 1;
       ws.roomId = this.id;
+      ws.playerName = playerName;
     } else {
       return false;
     }
@@ -44,24 +45,17 @@ class GameRoom {
 
   broadcast(message, excludeWs = null) {
     const msg = JSON.stringify(message);
-    if (this.host && this.host !== excludeWs && this.host.readyState === WebSocket.OPEN) {
+    if (this.host && this.host !== excludeWs && this.host.readyState === 1) {
       this.host.send(msg);
     }
-    if (this.guest && this.guest !== excludeWs && this.guest.readyState === WebSocket.OPEN) {
+    if (this.guest && this.guest !== excludeWs && this.guest.readyState === 1) {
       this.guest.send(msg);
-    }
-  }
-
-  sendTo(playerIndex, message) {
-    const ws = playerIndex === 0 ? this.host : this.guest;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
     }
   }
 }
 
-// Simple game engine (server-side)
-class ServerGameEngine {
+// Simple game engine
+class GameEngine {
   constructor() {
     this.instanceCounter = 0;
   }
@@ -74,23 +68,6 @@ class ServerGameEngine {
     return { instanceId: this.nextInstanceId(), cardId: def.id, def };
   }
 
-  buildDeck() {
-    const CARD_DATABASE = this.getCardDatabase();
-    const deck = [];
-    for (const card of CARD_DATABASE) {
-      const copies = card.rarity === 'common' ? 2 : 1;
-      for (let i = 0; i < copies; i++) {
-        deck.push(this.createCardInstance(card));
-      }
-    }
-    while (deck.length > 30) deck.pop();
-    while (deck.length < 30) {
-      const randomCard = CARD_DATABASE[Math.floor(Math.random() * CARD_DATABASE.length)];
-      deck.push(this.createCardInstance(randomCard));
-    }
-    return this.shuffleArray(deck);
-  }
-
   shuffleArray(arr) {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
@@ -98,6 +75,26 @@ class ServerGameEngine {
       [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
+  }
+
+  getCardDatabase() {
+    return [
+      { id: 'm01', name: 'Огненный имп', type: 'minion', cost: 1, rarity: 'common', attack: 3, health: 2, keywords: [] },
+      { id: 'm02', name: 'Серебряный рыцарь', type: 'minion', cost: 3, rarity: 'rare', attack: 2, health: 2, keywords: ['charge'] },
+      { id: 'm03', name: 'Ледяной страж', type: 'minion', cost: 4, rarity: 'common', attack: 3, health: 5, keywords: ['taunt'] },
+      { id: 's01', name: 'Огненный шар', type: 'spell', cost: 4, rarity: 'common', keywords: [] },
+      { id: 'w01', name: 'Меч новобранца', type: 'weapon', cost: 1, rarity: 'common', weaponAttack: 2, weaponDurability: 2, keywords: [] },
+    ];
+  }
+
+  buildDeck() {
+    const deck = [];
+    const cards = this.getCardDatabase();
+    while (deck.length < 30) {
+      const card = cards[Math.floor(Math.random() * cards.length)];
+      deck.push(this.createCardInstance(card));
+    }
+    return this.shuffleArray(deck);
   }
 
   createPlayer(name, id) {
@@ -118,11 +115,11 @@ class ServerGameEngine {
 
   createGameState(player1Name, player2Name) {
     this.instanceCounter = 0;
-    const p1 = this.createPlayer(player1Name, 'player1');
-    const p2 = this.createPlayer(player2Name, 'player2');
-
     const state = {
-      players: [p1, p2],
+      players: [
+        this.createPlayer(player1Name, 'player1'),
+        this.createPlayer(player2Name, 'player2'),
+      ],
       currentPlayerIndex: 0,
       turnNumber: 0,
       phase: 'playing',
@@ -130,6 +127,7 @@ class ServerGameEngine {
       log: [],
     };
 
+    // Draw initial hands
     for (let i = 0; i < 3; i++) {
       this.drawCard(state, 0);
       this.drawCard(state, 1);
@@ -147,90 +145,70 @@ class ServerGameEngine {
       return null;
     }
     const card = player.deck.pop();
-    if (player.hand.length >= 10) {
-      return null;
+    if (player.hand.length < 10) {
+      player.hand.push(card);
     }
-    player.hand.push(card);
     return card;
   }
 
   startTurn(state) {
-    const idx = state.currentPlayerIndex;
-    const player = state.players[idx];
-
+    const player = state.players[state.currentPlayerIndex];
     if (player.maxMana < 10) player.maxMana++;
     player.currentMana = player.maxMana;
-
-    this.drawCard(state, idx);
+    this.drawCard(state, state.currentPlayerIndex);
 
     for (const minion of player.board) {
       minion.hasAttacked = false;
-      minion.attacksThisTurn = 0;
-      minion.canAttack = minion.currentAttack > 0;
+      minion.canAttack = true;
     }
 
     player.heroPowerUsed = false;
     state.turnNumber++;
   }
 
-  playCard(state, playerIndex, instanceId, targetInstanceId) {
-    if (state.phase !== 'playing') return { success: false };
+  playCard(state, playerIndex, instanceId) {
     if (state.currentPlayerIndex !== playerIndex) return { success: false };
 
     const player = state.players[playerIndex];
     const cardIndex = player.hand.findIndex(c => c.instanceId === instanceId);
     if (cardIndex === -1) return { success: false };
 
-    const cardInst = player.hand[cardIndex];
-    const def = cardInst.def;
+    const card = player.hand[cardIndex];
+    if (card.def.cost > player.currentMana) return { success: false };
 
-    if (def.cost > player.currentMana) return { success: false };
-
-    player.currentMana -= def.cost;
+    player.currentMana -= card.def.cost;
     player.hand.splice(cardIndex, 1);
 
-    if (def.type === 'minion') {
-      if (player.board.length >= 7) return { success: false };
-      const minion = {
-        instanceId: cardInst.instanceId,
-        cardId: cardInst.cardId,
-        def: def,
-        currentAttack: def.attack || 0,
-        currentHealth: def.health || 1,
-        maxHealth: def.health || 1,
-        canAttack: def.keywords.includes('charge'),
+    if (card.def.type === 'minion' && player.board.length < 7) {
+      player.board.push({
+        instanceId: card.instanceId,
+        cardId: card.cardId,
+        def: card.def,
+        currentAttack: card.def.attack || 0,
+        currentHealth: card.def.health || 1,
+        maxHealth: card.def.health || 1,
+        canAttack: false,
         hasAttacked: false,
-        attacksThisTurn: 0,
-        hasDivineShield: def.keywords.includes('divine_shield'),
-        isPoisonous: def.keywords.includes('poisonous'),
-        hasTaunt: def.keywords.includes('taunt'),
-        hasWindfury: def.keywords.includes('windfury'),
-        hasLifesteal: def.keywords.includes('lifesteal'),
-        hasCharge: def.keywords.includes('charge'),
-        enchantments: [],
-      };
-      player.board.push(minion);
+      });
     }
 
-    this.checkDeath(state);
     return { success: true };
   }
 
-  attack(state, playerIndex, attackerInstanceId, targetInstanceId, targetIsHero) {
+  attack(state, playerIndex, attackerId, targetId, targetIsHero) {
     if (state.currentPlayerIndex !== playerIndex) return { success: false };
 
     const player = state.players[playerIndex];
     const opponent = state.players[playerIndex === 0 ? 1 : 0];
+    const attacker = player.board.find(m => m.instanceId === attackerId);
 
-    const attacker = player.board.find(m => m.instanceId === attackerInstanceId);
     if (!attacker || !attacker.canAttack || attacker.hasAttacked) return { success: false };
 
     if (targetIsHero) {
       opponent.heroHealth -= attacker.currentAttack;
     } else {
-      const target = opponent.board.find(m => m.instanceId === targetInstanceId);
+      const target = opponent.board.find(m => m.instanceId === targetId);
       if (!target) return { success: false };
-
       target.currentHealth -= attacker.currentAttack;
       attacker.currentHealth -= target.currentAttack;
     }
@@ -246,199 +224,183 @@ class ServerGameEngine {
   }
 
   checkDeath(state) {
-    for (let pi = 0; pi < 2; pi++) {
-      const player = state.players[pi];
-      player.board = player.board.filter(m => m.currentHealth > 0);
-    }
-
-    for (let pi = 0; pi < 2; pi++) {
-      if (state.players[pi].heroHealth <= 0 && state.winner === null) {
-        state.winner = pi === 0 ? 1 : 0;
+    for (let i = 0; i < 2; i++) {
+      state.players[i].board = state.players[i].board.filter(m => m.currentHealth > 0);
+      if (state.players[i].heroHealth <= 0 && !state.winner) {
+        state.winner = i === 0 ? 1 : 0;
         state.phase = 'gameOver';
       }
     }
   }
-
-  getCardDatabase() {
-    return [
-      { id: 'm01', name: 'Огненный имп', type: 'minion', cost: 1, rarity: 'common', attack: 3, health: 2, description: 'Боевой клич: 1 урон вашему герою', flavorText: 'Маленький, но горячий', keywords: ['battlecry'] },
-      { id: 'm02', name: 'Серебряный рыцарь', type: 'minion', cost: 3, rarity: 'rare', attack: 2, health: 2, description: 'Божественный щит. Рывок.', flavorText: 'Сияет как солнце', keywords: ['divine_shield', 'charge'] },
-      { id: 'm03', name: 'Ледяной страж', type: 'minion', cost: 4, rarity: 'common', attack: 3, health: 5, description: 'Провокация', flavorText: 'Крепкий как лёд', keywords: ['taunt'] },
-      { id: 's01', name: 'Огненный шар', type: 'spell', cost: 4, rarity: 'common', description: '6 урона цели', flavorText: 'Классика', keywords: [], spellTarget: 'any', spellDamage: 6 },
-      { id: 's02', name: 'Исцеление', type: 'spell', cost: 2, rarity: 'common', description: '+6 HP', flavorText: 'Свет исцеляет', keywords: [], spellTarget: 'any', spellHeal: 6 },
-      { id: 'w01', name: 'Меч новобранца', type: 'weapon', cost: 1, rarity: 'common', description: 'Оружие 2/2', flavorText: 'Простой меч', keywords: [], weaponAttack: 2, weaponDurability: 2 },
-    ];
-  }
 }
 
-const gameEngine = new ServerGameEngine();
+const gameEngine = new GameEngine();
 
 function getRoomList() {
   const list = [];
   rooms.forEach((room, id) => {
     list.push({
-      id: id,
+      id,
       hostName: room.hostName,
       guestName: room.guestName,
       isFull: room.isFull(),
-      playerCount: room.host ? (room.guest ? 2 : 1) : 0
+      playerCount: room.host ? (room.guest ? 2 : 1) : 0,
     });
   });
   return list;
 }
 
-function broadcastRoomList() {
+function broadcastRoomList(wss) {
   const roomList = getRoomList();
   wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
+    if (client.readyState === 1) {
       client.send(JSON.stringify({ type: 'room_list', rooms: roomList }));
     }
   });
 }
 
-// HTTP server for static files
-const server = http.createServer((req, res) => {
-  let filePath = '.' + req.url;
-  if (filePath === './') filePath = './dist/index.html';
-  
-  const extname = path.extname(filePath);
-  let contentType = 'text/html';
-  switch (extname) {
-    case '.js': contentType = 'text/javascript'; break;
-    case '.css': contentType = 'text/css'; break;
-    case '.json': contentType = 'application/json'; break;
-    case '.png': contentType = 'image/png'; break;
-    case '.jpg': contentType = 'image/jpg'; break;
-  }
-
-  fs.readFile(filePath, (error, content) => {
-    if (error) {
-      if (error.code === 'ENOENT') {
-        res.writeHead(404);
-        res.end('404 Not Found');
-      } else {
-        res.writeHead(500);
-        res.end('Error: ' + error.code);
-      }
-    } else {
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(content, 'utf-8');
-    }
-  });
-});
-
-// WebSocket server
-const wss = new WebSocket.Server({ server });
-
-wss.on('connection', (ws) => {
-  console.log('New connection');
-
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message);
-      handleMessage(ws, data);
-    } catch (e) {
-      console.error('Error parsing message:', e);
-    }
+async function startServer() {
+  // Create Vite dev server in middleware mode
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'spa',
   });
 
-  ws.on('close', () => {
-    console.log('Connection closed');
-    const roomId = ws.roomId;
-    if (roomId) {
-      const room = rooms.get(roomId);
-      if (room) {
-        room.broadcast({ type: 'player_disconnected' });
-        rooms.delete(roomId);
-        broadcastRoomList();
+  // Create HTTP server
+  const httpServer = createServer((req, res) => {
+    // Use Vite's middleware to handle requests
+    vite.middlewares(req, res, (err) => {
+      if (err) {
+        res.statusCode = 500;
+        res.end('Internal Server Error');
       }
-    }
+    });
   });
-});
 
-function handleMessage(ws, data) {
-  switch (data.type) {
-    case 'create_room':
-      const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const room = new GameRoom(roomId, data.playerName);
-      room.addPlayer(ws, data.playerName);
-      rooms.set(roomId, room);
-      ws.roomId = roomId;
-      ws.playerName = data.playerName;
-      ws.send(JSON.stringify({ type: 'room_created', roomId, rooms: getRoomList() }));
-      broadcastRoomList();
-      break;
+  // Create WebSocket server
+  const wss = new WebSocketServer({ server: httpServer });
 
-    case 'get_rooms':
-      ws.send(JSON.stringify({ type: 'room_list', rooms: getRoomList() }));
-      break;
+  wss.on('connection', (ws) => {
+    console.log('✅ New connection');
 
-    case 'join_room':
-      const joinRoom = rooms.get(data.roomId);
-      if (!joinRoom) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Комната не найдена' }));
-        return;
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message);
+        handleMessage(ws, data, wss);
+      } catch (e) {
+        console.error('Error parsing message:', e);
       }
-      if (joinRoom.isFull()) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Комната заполнена' }));
-        return;
-      }
-      joinRoom.addPlayer(ws, data.playerName);
-      ws.roomId = data.roomId;
-      ws.playerName = data.playerName;
-      joinRoom.broadcast({ type: 'player_joined', playerName: data.playerName });
-      broadcastRoomList();
-      break;
+    });
 
-    case 'start_game':
-      const gameRoom = rooms.get(ws.roomId);
-      if (gameRoom && gameRoom.isFull()) {
-        gameRoom.gameState = gameEngine.createGameState(gameRoom.hostName, gameRoom.guestName);
-        gameRoom.broadcast({ type: 'game_start', state: gameRoom.gameState });
-      }
-      break;
-
-    case 'play_card':
-      const playRoom = rooms.get(ws.roomId);
-      if (playRoom && playRoom.gameState) {
-        const result = gameEngine.playCard(playRoom.gameState, ws.playerIndex, data.instanceId, data.targetId);
-        if (result.success) {
-          playRoom.broadcast({ type: 'state_update', state: playRoom.gameState, action: { type: 'play_card', cardId: data.instanceId } });
+    ws.on('close', () => {
+      console.log('❌ Connection closed');
+      const roomId = ws.roomId;
+      if (roomId) {
+        const room = rooms.get(roomId);
+        if (room) {
+          room.broadcast({ type: 'player_disconnected' });
+          rooms.delete(roomId);
+          broadcastRoomList(wss);
         }
       }
-      break;
+    });
+  });
 
-    case 'attack':
-      const attackRoom = rooms.get(ws.roomId);
-      if (attackRoom && attackRoom.gameState) {
-        const result = gameEngine.attack(attackRoom.gameState, ws.playerIndex, data.attackerId, data.targetId, data.targetIsHero);
-        if (result.success) {
-          attackRoom.broadcast({ type: 'state_update', state: attackRoom.gameState, action: { type: 'attack', attackerId: data.attackerId, targetId: data.targetId } });
+  function handleMessage(ws, data, wss) {
+    switch (data.type) {
+      case 'create_room':
+        const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const room = new GameRoom(roomId, data.playerName);
+        room.addPlayer(ws, data.playerName);
+        rooms.set(roomId, room);
+        ws.send(JSON.stringify({ type: 'room_created', roomId }));
+        broadcastRoomList(wss);
+        break;
+
+      case 'get_rooms':
+        ws.send(JSON.stringify({ type: 'room_list', rooms: getRoomList() }));
+        break;
+
+      case 'join_room':
+        const joinRoom = rooms.get(data.roomId);
+        if (!joinRoom) {
+          ws.send(JSON.stringify({ type: 'error', message: 'Комната не найдена' }));
+          return;
+        }
+        if (joinRoom.isFull()) {
+          ws.send(JSON.stringify({ type: 'error', message: 'Комната заполнена' }));
+          return;
+        }
+        joinRoom.addPlayer(ws, data.playerName);
+        joinRoom.broadcast({ type: 'player_joined', playerName: data.playerName });
+        broadcastRoomList(wss);
+        break;
+
+      case 'start_game':
+        const gameRoom = rooms.get(ws.roomId);
+        if (gameRoom && gameRoom.isFull()) {
+          gameRoom.gameState = gameEngine.createGameState(gameRoom.hostName, gameRoom.guestName);
+          gameRoom.broadcast({ type: 'game_start', state: gameRoom.gameState });
+        }
+        break;
+
+      case 'play_card':
+        const playRoom = rooms.get(ws.roomId);
+        if (playRoom && playRoom.gameState) {
+          const result = gameEngine.playCard(playRoom.gameState, ws.playerIndex, data.instanceId);
+          if (result.success) {
+            playRoom.broadcast({ type: 'state_update', state: playRoom.gameState });
+          }
+        }
+        break;
+
+      case 'attack':
+        const attackRoom = rooms.get(ws.roomId);
+        if (attackRoom && attackRoom.gameState) {
+          const result = gameEngine.attack(attackRoom.gameState, ws.playerIndex, data.attackerId, data.targetId, data.targetIsHero);
+          if (result.success) {
+            attackRoom.broadcast({ type: 'state_update', state: attackRoom.gameState });
+          }
+        }
+        break;
+
+      case 'end_turn':
+        const turnRoom = rooms.get(ws.roomId);
+        if (turnRoom && turnRoom.gameState) {
+          gameEngine.endTurn(turnRoom.gameState);
+          turnRoom.broadcast({ type: 'state_update', state: turnRoom.gameState });
+        }
+        break;
+    }
+  }
+
+  httpServer.listen(PORT, '0.0.0.0', async () => {
+    const os = await import('os');
+    const interfaces = os.networkInterfaces();
+    let localIp = 'localhost';
+    
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          localIp = iface.address;
+          break;
         }
       }
-      break;
+    }
 
-    case 'end_turn':
-      const turnRoom = rooms.get(ws.roomId);
-      if (turnRoom && turnRoom.gameState) {
-        gameEngine.endTurn(turnRoom.gameState);
-        turnRoom.broadcast({ type: 'state_update', state: turnRoom.gameState, action: { type: 'end_turn' } });
-      }
-      break;
-  }
-}
-
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`
+    console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
 ║   ⚔  КАРТЫ СУДЬБЫ - Сервер запущен!  ⚔                  ║
 ║                                                           ║
-║   Локальный адрес: http://localhost:${PORT}                  ║
-║   Сетевой адрес:   http://<YOUR_IP>:${PORT}                  ║
+║   Локальный адрес: http://localhost:${PORT}               ║
+║   Сетевой адрес:   http://${localIp}:${PORT}              ║
 ║                                                           ║
 ║   Откройте в браузере и поделитесь адресом с другом!     ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
-  `);
-});
+    `);
+  });
+}
+
+startServer().catch(console.error);
