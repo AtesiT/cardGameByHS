@@ -206,12 +206,12 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 overflow-hidden select-none" style={{ fontFamily: "'Press Start 2P', monospace" }}>
+    <div className="min-h-screen overflow-hidden select-none px-bg-dark" style={{ fontFamily: "'Press Start 2P', monospace" }}>
       {/* Mute button */}
       <button
         onClick={toggleMute}
-        className="fixed top-2 right-2 z-50 bg-gray-800 border-2 border-amber-500 text-amber-400 px-2 py-1 text-xs hover:bg-gray-700 transition-colors"
-        style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '10px' }}
+        className="fixed top-3 right-3 z-50 px-btn bg-gray-900 border-amber-500 text-amber-400 px-3 py-2 hover:bg-gray-800"
+        style={{ fontSize: '10px' }}
       >
         {muted ? '🔇' : '🔊'}
       </button>
@@ -219,8 +219,8 @@ export default function App() {
       {/* Turn Banner */}
       {showTurnBanner && (
         <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
-          <div className="bg-black/80 border-4 border-amber-400 px-8 py-4 animate-pulse">
-            <p className="text-amber-400 text-center text-sm" style={{ fontSize: '12px' }}>
+          <div className="bg-black/90 border-4 border-amber-400 px-8 py-4 animate-px-turn-banner">
+            <p className="text-amber-400 text-center px-text-glow-gold" style={{ fontSize: '12px' }}>
               {turnBannerText}
             </p>
           </div>
@@ -229,8 +229,8 @@ export default function App() {
 
       {/* Emotion popup */}
       {emotion && (
-        <div className="fixed top-1/4 left-1/2 -translate-x-1/2 z-30 animate-bounce">
-          <div className="bg-white border-4 border-amber-400 rounded-lg px-4 py-2">
+        <div className="fixed top-1/4 left-1/2 -translate-x-1/2 z-30 animate-px-bounce">
+          <div className="bg-white border-4 border-gray-900 px-4 py-2">
             <p style={{ fontSize: '10px' }}>{getEmotionText(emotion.type)}</p>
           </div>
         </div>

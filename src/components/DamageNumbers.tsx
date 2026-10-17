@@ -29,14 +29,15 @@ export function DamageNumberDisplay({ numbers }: { numbers: DamageNumber[] }) {
       {numbers.map(num => (
         <div
           key={num.id}
-          className={`fixed pointer-events-none z-50 animate-float-up font-bold ${
+          className={`fixed pointer-events-none z-50 animate-px-float-up font-bold ${
             num.isHeal ? 'text-green-400' : 'text-red-400'
           }`}
           style={{
             left: `${num.x}px`,
             top: `${num.y}px`,
-            fontSize: '24px',
-            textShadow: '2px 2px 0px rgba(0,0,0,0.8)',
+            fontSize: '20px',
+            textShadow: '4px 4px 0px rgba(0,0,0,0.9)',
+            fontFamily: "'Press Start 2P', monospace",
           }}
         >
           {num.isHeal ? '+' : '-'}{num.value}

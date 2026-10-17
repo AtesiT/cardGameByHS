@@ -10,15 +10,26 @@ interface Props {
   onClick: () => void;
 }
 
+// Sprite positions for each minion (row, col in 4x4 grid)
+const SPRITE_POSITIONS: Record<string, [number, number]> = {
+  m01: [0, 0], m02: [0, 1], m03: [0, 2], m04: [0, 3],
+  m05: [1, 0], m06: [1, 1], m07: [1, 2], m08: [1, 3],
+  m09: [2, 0], m10: [2, 1], m11: [2, 2], m12: [2, 3],
+  m13: [3, 0], m14: [3, 1], m15: [3, 2],
+  token_golem: [3, 3], token_imp: [3, 3],
+};
+
+const SPRITE_URL = 'https://image.qwenlm.ai/generated-images/561bf98a-9a5b-4cf7-b17f-138c53d1c004/_result.png';
+
 export default function MinionComponent({ minion, isOpponent, isTargetable, isSelected, canAttack = false, onClick }: Props) {
   const isDamaged = minion.currentHealth < minion.maxHealth;
-  const isBuffed = minion.currentAttack > minion.def.attack!;
+  const isBuffed = minion.currentAttack > (minion.def.attack || 0);
   const [justPlayed, setJustPlayed] = useState(true);
   const [shaking, setShaking] = useState(false);
   const prevHealthRef = useRef(minion.currentHealth);
 
   useEffect(() => {
-    const timer = setTimeout(() => setJustPlayed(false), 500);
+    const timer = setTimeout(() => setJustPlayed(false), 400);
     return () => clearTimeout(timer);
   }, []);
 
@@ -30,99 +41,90 @@ export default function MinionComponent({ minion, isOpponent, isTargetable, isSe
     prevHealthRef.current = minion.currentHealth;
   }, [minion.currentHealth]);
 
+  // Get sprite background position
+  const pos = SPRITE_POSITIONS[minion.cardId] || [0, 0];
+  const spriteSize = 128; // Each sprite is 128x128 in the 512x512 image
+  const bgX = -(pos[1] * spriteSize);
+  const bgY = -(pos[0] * spriteSize);
+
   return (
     <div className="relative group">
       <button
         onClick={onClick}
-        className={`relative border-2 rounded-lg transition-all duration-150 flex flex-col items-center justify-center ${
-          justPlayed ? 'animate-card-play' : ''
-        } ${
-          shaking ? 'animate-shake' : ''
-        } ${
+        className={`relative transition-all ${
+          justPlayed ? 'animate-px-card-play' : ''
+        } ${shaking ? 'animate-px-shake' : ''} ${
+          minion.hasTaunt ? 'px-taunt' : ''
+        } ${minion.hasDivineShield ? 'px-divine-shield' : ''} ${
           isTargetable && isOpponent
-            ? 'border-red-400 hover:bg-red-900/30 cursor-crosshair hover:animate-pulse'
+            ? 'border-4 border-red-500 cursor-crosshair hover:bg-red-900/30'
             : isSelected
-            ? 'border-yellow-400 bg-yellow-900/30 scale-110 ring-2 ring-yellow-300 shadow-lg shadow-yellow-400/40'
+            ? 'border-4 border-yellow-400 bg-yellow-900/40 scale-110'
             : canAttack
-            ? 'border-green-400 hover:border-green-300 hover:scale-105 cursor-pointer hover:shadow-lg hover:shadow-green-400/30'
-            : 'border-gray-500'
-        } ${minion.hasDivineShield ? 'ring-2 ring-yellow-200 shadow-lg shadow-yellow-200/30' : ''}`}
+            ? 'border-4 border-green-400 hover:border-green-300 hover:scale-105 cursor-pointer'
+            : 'border-4 ' + (isOpponent ? 'border-red-900 bg-red-950/50' : 'border-blue-900 bg-blue-950/50')
+        }`}
         style={{
-          width: '64px',
-          height: '80px',
-          background: `linear-gradient(to bottom, ${isOpponent ? '#7f1d1d' : '#1e3a5f'}, ${isOpponent ? '#450a0a' : '#0c1e3f'})`,
+          width: '72px',
+          height: '88px',
+          imageRendering: 'pixelated',
         }}
       >
-      {/* Divine Shield glow */}
-      {minion.hasDivineShield && (
-        <div className="absolute inset-0 border-2 border-yellow-300 rounded-lg animate-pulse opacity-60" />
-      )}
+        {/* Sprite */}
+        <div
+          className="absolute inset-1"
+          style={{
+            backgroundImage: `url(${SPRITE_URL})`,
+            backgroundPosition: `${bgX}px ${bgY}px`,
+            backgroundSize: '512px 512px',
+            backgroundRepeat: 'no-repeat',
+            imageRendering: 'pixelated',
+          }}
+        />
 
-      {/* Taunt indicator */}
-      {minion.hasTaunt && (
-        <div className="absolute inset-0 border-2 border-gray-300 rounded-lg opacity-50" style={{ borderWidth: '3px' }} />
-      )}
+        {/* Dark overlay for opponent minions */}
+        {isOpponent && (
+          <div className="absolute inset-1 bg-red-900/20 pointer-events-none" />
+        )}
 
-      {/* Poisonous indicator */}
-      {minion.isPoisonous && (
-        <div className="absolute top-0 right-0 text-xs">☠️</div>
-      )}
+        {/* Stats - attack bottom-left, health bottom-right */}
+        <div className="absolute bottom-0 left-0">
+          <span className={`bg-black/80 border border-yellow-500 px-0.5 font-bold ${isBuffed ? 'text-green-300' : 'text-yellow-300'}`} style={{ fontSize: '10px' }}>
+            {minion.currentAttack}⚔
+          </span>
+        </div>
+        <div className="absolute bottom-0 right-0">
+          <span className={`bg-black/80 border px-0.5 font-bold ${isDamaged ? 'border-red-500 text-red-300' : 'border-red-400 text-white'}`} style={{ fontSize: '10px' }}>
+            {minion.currentHealth}❤
+          </span>
+        </div>
 
-      {/* Card art */}
-      <span style={{ fontSize: '20px' }}>
-        {getMinionEmoji(minion.cardId)}
-      </span>
+        {/* Keyword badges - top */}
+        <div className="absolute -top-1 left-1/2 -translate-x-1/2 flex gap-0.5">
+          {minion.hasTaunt && <span className="bg-gray-600 border border-gray-400 text-white px-0.5" style={{ fontSize: '5px' }}>🛡</span>}
+          {minion.hasWindfury && <span className="bg-blue-600 border border-blue-400 text-white px-0.5" style={{ fontSize: '5px' }}>💨</span>}
+          {minion.isPoisonous && <span className="bg-green-800 border border-green-400 text-white px-0.5" style={{ fontSize: '5px' }}>☠</span>}
+          {minion.hasLifesteal && <span className="bg-red-800 border border-red-400 text-white px-0.5" style={{ fontSize: '5px' }}>💉</span>}
+        </div>
 
-      {/* Name */}
-      <span className="text-white text-center leading-tight mt-0.5 px-0.5" style={{ fontSize: '5px' }}>
-        {minion.def.name}
-      </span>
-
-      {/* Stats */}
-      <div className="absolute bottom-0.5 left-0.5 right-0.5 flex justify-between">
-        <span className={`font-bold px-0.5 rounded ${isBuffed ? 'text-green-300' : 'text-yellow-300'}`} style={{ fontSize: '10px' }}>
-          {minion.currentAttack}⚔
-        </span>
-        <span className={`font-bold px-0.5 rounded ${isDamaged ? 'text-red-300' : 'text-white'}`} style={{ fontSize: '10px' }}>
-          {minion.currentHealth}❤
-        </span>
-      </div>
-
-      {/* Keyword badges */}
-      <div className="absolute -top-1 left-1/2 -translate-x-1/2 flex gap-0.5">
-        {minion.hasTaunt && <span className="bg-gray-400 text-black rounded px-0.5" style={{ fontSize: '5px' }}>🛡</span>}
-        {minion.hasWindfury && <span className="bg-blue-400 text-black rounded px-0.5" style={{ fontSize: '5px' }}>💨</span>}
-        {minion.hasLifesteal && <span className="bg-red-400 text-black rounded px-0.5" style={{ fontSize: '5px' }}>💉</span>}
-      </div>
-
-      {/* Can attack indicator */}
-      {canAttack && !isOpponent && (
-        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-      )}
+        {/* Can attack indicator - green pixel dot */}
+        {canAttack && !isOpponent && (
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-green-400 animate-px-blink" />
+        )}
       </button>
 
-      {/* Tooltip */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border-2 border-amber-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-        <p className="text-amber-400 font-bold mb-1" style={{ fontSize: '8px' }}>{minion.def.name}</p>
-        <p className="text-gray-200" style={{ fontSize: '6px' }}>{minion.def.description}</p>
+      {/* Pixel tooltip */}
+      <div className="px-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-52">
+        <p className="text-yellow-400 font-bold mb-1" style={{ fontSize: '8px' }}>{minion.def.name}</p>
+        <p className="text-gray-200 mb-1" style={{ fontSize: '6px' }}>{minion.def.description}</p>
         {minion.def.flavorText && (
-          <p className="text-gray-500 italic mt-1" style={{ fontSize: '5px' }}>"{minion.def.flavorText}"</p>
+          <p className="text-gray-500 italic" style={{ fontSize: '5px' }}>"{minion.def.flavorText}"</p>
         )}
-        <div className="flex gap-2 mt-1 text-xs">
-          <span className="text-yellow-300">⚔ {minion.currentAttack}</span>
-          <span className="text-red-300">❤ {minion.currentHealth}/{minion.maxHealth}</span>
+        <div className="flex gap-2 mt-1 border-t border-gray-700 pt-1">
+          <span className="text-yellow-300" style={{ fontSize: '6px' }}>⚔ {minion.currentAttack}/{minion.def.attack}</span>
+          <span className="text-red-300" style={{ fontSize: '6px' }}>❤ {minion.currentHealth}/{minion.maxHealth}</span>
         </div>
       </div>
     </div>
   );
-}
-
-function getMinionEmoji(cardId: string): string {
-  const emojis: Record<string, string> = {
-    m01: '😈', m02: '🛡️', m03: '👑', m04: '🧊', m05: '🗡️',
-    m06: '🗿', m07: '🌿', m08: '🩸', m09: '🐉', m10: '💃',
-    m11: '✨', m12: '🔥', m13: '🛡️', m14: '🐲', m15: '🦅',
-    token_golem: '🤖', token_imp: '👿',
-  };
-  return emojis[cardId] || '👹';
 }
