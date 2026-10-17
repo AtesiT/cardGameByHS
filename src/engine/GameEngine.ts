@@ -94,8 +94,7 @@ export function drawCard(state: GameState, playerIndex: number): CardInstance | 
   const player = state.players[playerIndex];
   if (player.deck.length === 0) {
     player.fatigue++;
-    player.heroHealth -= player.fatigue;
-    state.log.push(`${player.name} получает ${player.fatigue} урона от усталости!`);
+    dealDamageToHero(state, playerIndex, player.fatigue);
     checkDeath(state);
     return null;
   }
@@ -231,8 +230,7 @@ function playSpell(state: GameState, playerIndex: number, cardIndex: number, tar
         // Target is hero
         if (targetInstanceId === 'hero_0' || targetInstanceId === 'hero_1') {
           const targetPlayerIdx = parseInt(targetInstanceId.split('_')[1]);
-          state.players[targetPlayerIdx].heroHealth -= def.spellDamage;
-          state.log.push(`${def.name} наносит ${def.spellDamage} урона герою ${state.players[targetPlayerIdx].name}`);
+          dealDamageToHero(state, targetPlayerIdx, def.spellDamage);
         }
       }
     }
@@ -240,14 +238,13 @@ function playSpell(state: GameState, playerIndex: number, cardIndex: number, tar
 
   // Random damage (Молния — 3 урона случайному врагу)
   if (def.spellDamage && def.spellTarget === 'none' && !def.spellAoEDamage) {
+    const opponentIdx = playerIndex === 0 ? 1 : 0;
     if (opponent.board.length > 0) {
       const target = opponent.board[Math.floor(Math.random() * opponent.board.length)];
-      const opponentIdx = playerIndex === 0 ? 1 : 0;
       dealDamageToMinion(state, target, def.spellDamage, opponentIdx);
       state.log.push(`${def.name} наносит ${def.spellDamage} урона ${target.def.name}`);
     } else {
-      opponent.heroHealth -= def.spellDamage;
-      state.log.push(`${def.name} наносит ${def.spellDamage} урона вражескому герою`);
+      dealDamageToHero(state, opponentIdx, def.spellDamage);
     }
   }
 
@@ -379,12 +376,15 @@ export function attack(state: GameState, playerIndex: number, attackerInstanceId
 
   if (targetIsHero) {
     // Attack hero
-    const opponentIdx = playerIndex === 0 ? 1 : 0;
+    const healthBefore = opponent.heroHealth;
+    const armorBefore = opponent.armor;
     dealDamageToHero(state, opponentIdx, attacker.currentAttack);
+    const actualDamage = (healthBefore - opponent.heroHealth) + (armorBefore - opponent.armor);
     state.log.push(`${attacker.def.name} атакует героя ${opponent.name}`);
 
-    if (attacker.hasLifesteal) {
-      player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + attacker.currentAttack);
+    if (attacker.hasLifesteal && actualDamage > 0) {
+      player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + actualDamage);
+      state.log.push(`${attacker.def.name} восстанавливает ${actualDamage} здоровья`);
     }
   } else {
     // Attack minion
@@ -698,8 +698,7 @@ function executeBattlecry(state: GameState, playerIndex: number, minion: BoardMi
 
   switch (def.battlecryDesc) {
     case 'deal_1_to_own_hero':
-      player.heroHealth -= 1;
-      state.log.push(`${minion.def.name} наносит 1 урон вашему герою`);
+      dealDamageToHero(state, playerIndex, 1);
       break;
     case 'buff_all_friendly_1_1':
       for (const m of player.board) {
@@ -740,8 +739,7 @@ function executeBattlecry(state: GameState, playerIndex: number, minion: BoardMi
         const target = opponent.board[Math.floor(Math.random() * opponent.board.length)];
         dealDamageToMinion(state, target, 3, opponentIdx);
       } else {
-        opponent.heroHealth -= 3;
-        state.log.push(`${minion.def.name} наносит 3 урона вражескому герою`);
+        dealDamageToHero(state, opponentIdx, 3);
       }
       break;
     case 'heal_target_5':
@@ -830,15 +828,14 @@ function executeDeathrattle(state: GameState, minion: BoardMinion, ownerIndex: n
 
 function executeWeaponDeathrattle(state: GameState, playerIndex: number): void {
   const player = state.players[playerIndex];
-  const opponent = state.players[playerIndex === 0 ? 1 : 0];
+  const opponentIdx = playerIndex === 0 ? 1 : 0;
   if (!player.weapon) return;
 
   const def = getCardById(player.weapon.cardId);
   if (!def || !def.deathrattleDesc) return;
 
   if (def.deathrattleDesc === 'deal_3_to_enemy_hero') {
-    opponent.heroHealth -= 3;
-    state.log.push(`Оружие ${def.name}: 3 урона вражескому герою!`);
+    dealDamageToHero(state, opponentIdx, 3);
   }
 }
 
