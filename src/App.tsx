@@ -8,6 +8,8 @@ import GameBoard from './components/GameBoard';
 import Collection from './components/Collection';
 import ResultScreen from './components/ResultScreen';
 import PassDevice from './components/PassDevice';
+import Lobby from './components/Lobby';
+import WaitingRoom from './components/WaitingRoom';
 import { DamageNumberDisplay, useDamageNumbers } from './components/DamageNumbers';
 
 export default function App() {
@@ -24,10 +26,124 @@ export default function App() {
   const [animating, setAnimating] = useState(false);
   const [showPassDevice, setShowPassDevice] = useState(false);
   const { numbers: damageNumbers, addNumber } = useDamageNumbers();
+  
+  // Multiplayer state
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [playerName] = useState('Игрок_' + Math.random().toString(36).substring(2, 6).toUpperCase());
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [isHost, setIsHost] = useState(false);
 
   useEffect(() => {
     audio.init();
   }, []);
+
+  // WebSocket connection for multiplayer
+  const connectWebSocket = useCallback(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}`;
+    const socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      console.log('WebSocket connected');
+      setWs(socket);
+    };
+
+    socket.onclose = () => {
+      console.log('WebSocket disconnected');
+      setWs(null);
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    return socket;
+  }, []);
+
+  const handleMultiplayer = useCallback(() => {
+    audio.playClick();
+    connectWebSocket();
+    setScreen('lobby');
+  }, [connectWebSocket]);
+
+  const handleCreateRoom = useCallback(() => {
+    if (!ws) return;
+    ws.send(JSON.stringify({ type: 'create_room', playerName }));
+    
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'room_created') {
+          setRoomId(data.roomId);
+          setIsHost(true);
+          setScreen('waiting');
+          ws.removeEventListener('message', handleMessage);
+        }
+      } catch (e) {
+        console.error('Error:', e);
+      }
+    };
+    
+    ws.addEventListener('message', handleMessage);
+  }, [ws, playerName]);
+
+  const handleJoinRoom = useCallback((roomIdToJoin: string) => {
+    if (!ws) return;
+    ws.send(JSON.stringify({ type: 'join_room', roomId: roomIdToJoin, playerName }));
+    
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'player_joined' || data.type === 'room_created') {
+          setRoomId(roomIdToJoin);
+          setIsHost(false);
+          setScreen('waiting');
+          ws.removeEventListener('message', handleMessage);
+        } else if (data.type === 'error') {
+          alert(data.message);
+          ws.removeEventListener('message', handleMessage);
+        }
+      } catch (e) {
+        console.error('Error:', e);
+      }
+    };
+    
+    ws.addEventListener('message', handleMessage);
+  }, [ws, playerName]);
+
+  const handleStartGameFromWaiting = useCallback(() => {
+    if (!ws) return;
+    ws.send(JSON.stringify({ type: 'start_game' }));
+    
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'game_start') {
+          setGameState(data.state);
+          setPlayerView(isHost ? 0 : 1);
+          setGameMode('online');
+          setScreen('game');
+          startGame(data.state);
+          setGameState({ ...data.state });
+          ws.removeEventListener('message', handleMessage);
+        }
+      } catch (e) {
+        console.error('Error:', e);
+      }
+    };
+    
+    ws.addEventListener('message', handleMessage);
+  }, [ws, isHost]);
+
+  const handleLeaveRoom = useCallback(() => {
+    if (ws) {
+      ws.close();
+    }
+    setWs(null);
+    setRoomId(null);
+    setIsHost(false);
+    setScreen('menu');
+  }, [ws]);
 
   const startNewGame = useCallback((mode: GameMode, deckPreset?: string) => {
     audio.resume();
@@ -254,6 +370,31 @@ export default function App() {
         <MainMenu
           onStartGame={startNewGame}
           onShowCollection={() => { audio.playClick(); setScreen('collection'); }}
+          onMultiplayer={handleMultiplayer}
+        />
+      )}
+
+      {screen === 'lobby' && (
+        <Lobby
+          ws={ws}
+          playerName={playerName}
+          onCreateRoom={handleCreateRoom}
+          onJoinRoom={handleJoinRoom}
+          onBack={() => { 
+            if (ws) ws.close();
+            setWs(null);
+            setScreen('menu'); 
+          }}
+        />
+      )}
+
+      {screen === 'waiting' && roomId && (
+        <WaitingRoom
+          ws={ws}
+          roomId={roomId}
+          playerName={playerName}
+          onStartGame={handleStartGameFromWaiting}
+          onLeave={handleLeaveRoom}
         />
       )}
 

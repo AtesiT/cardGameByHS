@@ -5,9 +5,10 @@ import { useState } from 'react';
 interface Props {
   onStartGame: (mode: GameMode, deckPreset?: string) => void;
   onShowCollection: () => void;
+  onMultiplayer: () => void;
 }
 
-export default function MainMenu({ onStartGame, onShowCollection }: Props) {
+export default function MainMenu({ onStartGame, onShowCollection, onMultiplayer }: Props) {
   const [selectedDeck, setSelectedDeck] = useState<keyof typeof DECK_PRESETS>('balanced');
   const [showDeckSelect, setShowDeckSelect] = useState(false);
   return (
@@ -86,6 +87,9 @@ export default function MainMenu({ onStartGame, onShowCollection }: Props) {
           </PixelButton>
           <PixelButton onClick={() => onStartGame('ai', selectedDeck)} color="blue">
             🤖 ПРОТИВ AI
+          </PixelButton>
+          <PixelButton onClick={onMultiplayer} color="amber">
+            🌐 МУЛЬТИПЛЕЕР
           </PixelButton>
           <PixelButton onClick={() => setShowDeckSelect(!showDeckSelect)} color="amber">
             📋 КОЛОДА: {DECK_PRESETS[selectedDeck].name}

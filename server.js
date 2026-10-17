@@ -273,6 +273,29 @@ class ServerGameEngine {
 
 const gameEngine = new ServerGameEngine();
 
+function getRoomList() {
+  const list = [];
+  rooms.forEach((room, id) => {
+    list.push({
+      id: id,
+      hostName: room.hostName,
+      guestName: room.guestName,
+      isFull: room.isFull(),
+      playerCount: room.host ? (room.guest ? 2 : 1) : 0
+    });
+  });
+  return list;
+}
+
+function broadcastRoomList() {
+  const roomList = getRoomList();
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({ type: 'room_list', rooms: roomList }));
+    }
+  });
+}
+
 // HTTP server for static files
 const server = http.createServer((req, res) => {
   let filePath = '.' + req.url;
@@ -327,6 +350,7 @@ wss.on('connection', (ws) => {
       if (room) {
         room.broadcast({ type: 'player_disconnected' });
         rooms.delete(roomId);
+        broadcastRoomList();
       }
     }
   });
@@ -339,7 +363,14 @@ function handleMessage(ws, data) {
       const room = new GameRoom(roomId, data.playerName);
       room.addPlayer(ws, data.playerName);
       rooms.set(roomId, room);
-      ws.send(JSON.stringify({ type: 'room_created', roomId }));
+      ws.roomId = roomId;
+      ws.playerName = data.playerName;
+      ws.send(JSON.stringify({ type: 'room_created', roomId, rooms: getRoomList() }));
+      broadcastRoomList();
+      break;
+
+    case 'get_rooms':
+      ws.send(JSON.stringify({ type: 'room_list', rooms: getRoomList() }));
       break;
 
     case 'join_room':
@@ -353,7 +384,10 @@ function handleMessage(ws, data) {
         return;
       }
       joinRoom.addPlayer(ws, data.playerName);
+      ws.roomId = data.roomId;
+      ws.playerName = data.playerName;
       joinRoom.broadcast({ type: 'player_joined', playerName: data.playerName });
+      broadcastRoomList();
       break;
 
     case 'start_game':
