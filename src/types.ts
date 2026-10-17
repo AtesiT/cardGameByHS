@@ -81,8 +81,10 @@ export interface WeaponState {
 export interface Player {
   id: string;
   name: string;
+  heroClass: string; // Класс героя (warrior, mage, priest, etc.)
   heroHealth: number;
   maxHeroHealth: number;
+  armor: number; // Броня (поглощает урон до здоровья)
   maxMana: number;
   currentMana: number;
   deck: CardInstance[];

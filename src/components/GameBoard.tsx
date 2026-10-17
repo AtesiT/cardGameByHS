@@ -416,6 +416,21 @@ export default function GameBoard({
 
 // ============= SUB-COMPONENTS =============
 
+function getHeroEmoji(heroClass: string): string {
+  const emojis: Record<string, string> = {
+    warrior: '⚔️',
+    mage: '🔮',
+    priest: '✨',
+    hunter: '🏹',
+    rogue: '🗡️',
+    shaman: '⚡',
+    warlock: '😈',
+    paladin: '🛡️',
+    druid: '🌿',
+  };
+  return emojis[heroClass] || '👤';
+}
+
 function HeroPortrait({ player, isOpponent, isTargetable, onClick, emotion, isHit }: {
   player: any; isOpponent: boolean; isTargetable: boolean; onClick: () => void; emotion: EmotionType | null; isHit?: boolean;
 }) {
@@ -447,11 +462,16 @@ function HeroPortrait({ player, isOpponent, isTargetable, onClick, emotion, isHi
         {/* Overlay for opponent */}
         {isOpponent && <div className="absolute inset-0 bg-red-900/30" />}
         
-        {/* HP display */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/80 py-0.5 text-center">
+        {/* HP and Armor display */}
+        <div className="absolute bottom-0 left-0 right-0 bg-black/80 py-0.5 text-center flex justify-center gap-1">
           <span className={`font-bold ${healthPercent > 60 ? 'text-green-400' : healthPercent > 30 ? 'text-yellow-400' : 'text-red-400'}`} style={{ fontSize: '10px' }}>
             {player.heroHealth}❤
           </span>
+          {player.armor > 0 && (
+            <span className="font-bold text-gray-300" style={{ fontSize: '10px' }}>
+              {player.armor}🛡
+            </span>
+          )}
         </div>
       </button>
 
@@ -470,9 +490,11 @@ function HeroPortrait({ player, isOpponent, isTargetable, onClick, emotion, isHi
         ))}
       </div>
 
-      {/* Name */}
+      {/* Name and Class */}
       <div className="text-center mt-0.5">
-        <span className="text-gray-400" style={{ fontSize: '5px' }}>{player.name}</span>
+        <span className="text-gray-400" style={{ fontSize: '5px' }}>
+          {getHeroEmoji(player.heroClass)} {player.name}
+        </span>
       </div>
 
       {/* Emotion */}

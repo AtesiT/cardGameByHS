@@ -49,12 +49,14 @@ function buildDeck(presetCards?: string[]): CardInstance[] {
   return shuffleArray(deck);
 }
 
-function createPlayer(name: string, id: string, deckPreset?: string[]): Player {
+function createPlayer(name: string, id: string, heroClass: string = 'mage', deckPreset?: string[]): Player {
   return {
     id,
     name,
+    heroClass,
     heroHealth: 30,
     maxHeroHealth: 30,
+    armor: 0,
     maxMana: 0,
     currentMana: 0,
     deck: buildDeck(deckPreset),
@@ -65,10 +67,10 @@ function createPlayer(name: string, id: string, deckPreset?: string[]): Player {
   };
 }
 
-export function createGameState(player1Name: string, player2Name: string, deck1Preset?: string[], deck2Preset?: string[]): GameState {
+export function createGameState(player1Name: string, player2Name: string, hero1Class: string = 'mage', hero2Class: string = 'mage', deck1Preset?: string[], deck2Preset?: string[]): GameState {
   instanceCounter = 0;
-  const p1 = createPlayer(player1Name, 'player1', deck1Preset);
-  const p2 = createPlayer(player2Name, 'player2', deck2Preset);
+  const p1 = createPlayer(player1Name, 'player1', hero1Class, deck1Preset);
+  const p2 = createPlayer(player2Name, 'player2', hero2Class, deck2Preset);
 
   const state: GameState = {
     players: [p1, p2],
@@ -377,8 +379,9 @@ export function attack(state: GameState, playerIndex: number, attackerInstanceId
 
   if (targetIsHero) {
     // Attack hero
-    opponent.heroHealth -= attacker.currentAttack;
-    state.log.push(`${attacker.def.name} атакует героя ${opponent.name} на ${attacker.currentAttack}`);
+    const opponentIdx = playerIndex === 0 ? 1 : 0;
+    dealDamageToHero(state, opponentIdx, attacker.currentAttack);
+    state.log.push(`${attacker.def.name} атакует героя ${opponent.name}`);
 
     if (attacker.hasLifesteal) {
       player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + attacker.currentAttack);
@@ -435,13 +438,13 @@ function attackWithWeapon(state: GameState, playerIndex: number, targetInstanceI
   if (hasTaunt && targetIsHero) return { success: false, error: 'Нельзя атаковать героя, пока есть Провокация' };
 
   if (targetIsHero) {
-    opponent.heroHealth -= player.weapon.attack;
-    state.log.push(`${player.name} атакует героем оружием ${player.weapon.name} на ${player.weapon.attack}`);
+    dealDamageToHero(state, opponentIdx, player.weapon.attack);
+    state.log.push(`${player.name} атакует героем оружием ${player.weapon.name}`);
   } else {
     const target = opponent.board.find(m => m.instanceId === targetInstanceId);
     if (!target) return { success: false, error: 'Цель не найдена' };
     dealDamageToMinion(state, target, player.weapon.attack, opponentIdx);
-    player.heroHealth -= target.currentAttack;
+    dealDamageToHero(state, playerIndex, target.currentAttack);
     state.log.push(`${player.weapon.name} атакует ${target.def.name}`);
   }
 
@@ -469,14 +472,164 @@ export function useHeroPower(state: GameState, playerIndex: number): { success: 
   player.currentMana -= 2;
   player.heroPowerUsed = true;
 
-  // Basic hero power: 1 damage to enemy hero, heal 2
-  const opponent = state.players[playerIndex === 0 ? 1 : 0];
-  opponent.heroHealth -= 1;
-  player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + 2);
-  state.log.push(`${player.name} использует способность героя (1 урон, 2 лечение)`);
+  // Class-specific hero powers
+  const opponentIdx = playerIndex === 0 ? 1 : 0;
+  executeHeroPower(state, playerIndex, opponentIdx);
 
   checkDeath(state);
   return { success: true };
+}
+
+function executeHeroPower(state: GameState, playerIndex: number, opponentIdx: number): void {
+  const player = state.players[playerIndex];
+  const opponent = state.players[opponentIdx];
+
+  switch (player.heroClass) {
+    case 'warrior':
+      // Воин: Получить 2 брони
+      gainArmor(state, playerIndex, 2);
+      state.log.push(`${player.name} использует Вооружиться (+2 брони)`);
+      break;
+
+    case 'mage':
+      // Маг: Нанести 1 урон цели (по умолчанию вражескому герою)
+      dealDamageToHero(state, opponentIdx, 1);
+      state.log.push(`${player.name} использует Огненный взрыв (1 урон)`);
+      break;
+
+    case 'priest':
+      // Жрец: Восстановить 2 здоровья
+      player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + 2);
+      state.log.push(`${player.name} использует Малое исцеление (+2 HP)`);
+      break;
+
+    case 'hunter':
+      // Охотник: Нанести 2 урона вражескому герою
+      dealDamageToHero(state, opponentIdx, 2);
+      state.log.push(`${player.name} использует Выстрел (2 урона герою)`);
+      break;
+
+    case 'rogue':
+      // Разбойник: Экипировать кинжал 1/1
+      if (player.weapon) {
+        state.log.push(`${player.name} заменяет оружие на кинжал`);
+      }
+      player.weapon = {
+        cardId: 'weapon_knife',
+        name: 'Кинжал',
+        attack: 1,
+        durability: 1,
+        maxDurability: 1,
+      };
+      state.log.push(`${player.name} использует Кинжалы (оружие 1/1)`);
+      break;
+
+    case 'shaman':
+      // Шаман: Призвать случайный тотем
+      if (player.board.length < 7) {
+        const totems = [
+          { name: 'Тотем лечения', attack: 0, health: 2 },
+          { name: 'Тотем огня', attack: 1, health: 1 },
+          { name: 'Каменный тотем', attack: 0, health: 3, taunt: true },
+          { name: 'Тотем гнева', attack: 2, health: 1 },
+        ];
+        const totem = totems[Math.floor(Math.random() * totems.length)];
+        const minion: BoardMinion = {
+          instanceId: nextInstanceId(),
+          cardId: 'token_totem',
+          def: {
+            id: 'token_totem',
+            name: totem.name,
+            type: 'minion',
+            cost: 0,
+            rarity: 'common',
+            description: '',
+            flavorText: '',
+            keywords: totem.taunt ? ['taunt'] : [],
+            attack: totem.attack,
+            health: totem.health,
+          },
+          currentAttack: totem.attack,
+          currentHealth: totem.health,
+          maxHealth: totem.health,
+          canAttack: false,
+          hasAttacked: false,
+          attacksThisTurn: 0,
+          hasDivineShield: false,
+          isPoisonous: false,
+          hasTaunt: !!totem.taunt,
+          hasWindfury: false,
+          hasLifesteal: false,
+          hasCharge: false,
+          enchantments: [],
+        };
+        player.board.push(minion);
+        state.log.push(`${player.name} использует Тотем (призван ${totem.name})`);
+      } else {
+        state.log.push(`${player.name} использует Тотем, но поле переполнено!`);
+      }
+      break;
+
+    case 'warlock':
+      // Чернокнижник: 2 урона себе, взять карту
+      dealDamageToHero(state, playerIndex, 2);
+      drawCard(state, playerIndex);
+      state.log.push(`${player.name} использует Жизненная сила (2 урона себе, +1 карта)`);
+      break;
+
+    case 'paladin':
+      // Паладин: Призвать Серебряного новобранца 1/1
+      if (player.board.length < 7) {
+        const minion: BoardMinion = {
+          instanceId: nextInstanceId(),
+          cardId: 'token_silver_hand',
+          def: {
+            id: 'token_silver_hand',
+            name: 'Серебряный новобранец',
+            type: 'minion',
+            cost: 0,
+            rarity: 'common',
+            description: '',
+            flavorText: '',
+            keywords: [],
+            attack: 1,
+            health: 1,
+          },
+          currentAttack: 1,
+          currentHealth: 1,
+          maxHealth: 1,
+          canAttack: false,
+          hasAttacked: false,
+          attacksThisTurn: 0,
+          hasDivineShield: false,
+          isPoisonous: false,
+          hasTaunt: false,
+          hasWindfury: false,
+          hasLifesteal: false,
+          hasCharge: false,
+          enchantments: [],
+        };
+        player.board.push(minion);
+        state.log.push(`${player.name} использует Воззвание (призван Серебряный новобранец)`);
+      } else {
+        state.log.push(`${player.name} использует Воззвание, но поле переполнено!`);
+      }
+      break;
+
+    case 'druid':
+      // Друид: +1 атака в этот ход, +1 броня
+      gainArmor(state, playerIndex, 1);
+      // Временный бафф атаки (упрощённо - просто добавляем атаку)
+      state.log.push(`${player.name} использует Метаморфоза (+1 атака, +1 броня)`);
+      // Для простоты не реализуем временный бафф, просто даём броню
+      break;
+
+    default:
+      // По умолчанию: 1 урон врагу, 2 лечения себе
+      dealDamageToHero(state, opponentIdx, 1);
+      player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + 2);
+      state.log.push(`${player.name} использует способность героя`);
+  }
 }
 
 // ============= HELPER FUNCTIONS =============
@@ -491,6 +644,33 @@ function dealDamageToMinion(state: GameState, minion: BoardMinion, damage: numbe
   if (damage > 0) {
     state.log.push(`${minion.def.name} получает ${damage} урона (${minion.currentHealth} HP)`);
   }
+}
+
+function dealDamageToHero(state: GameState, playerIndex: number, damage: number): void {
+  const player = state.players[playerIndex];
+  let remainingDamage = damage;
+  
+  // First, absorb damage with armor
+  if (player.armor > 0) {
+    const armorAbsorbed = Math.min(player.armor, remainingDamage);
+    player.armor -= armorAbsorbed;
+    remainingDamage -= armorAbsorbed;
+    if (armorAbsorbed > 0) {
+      state.log.push(`${player.name} теряет ${armorAbsorbed} брони`);
+    }
+  }
+  
+  // Then, apply remaining damage to health
+  if (remainingDamage > 0) {
+    player.heroHealth -= remainingDamage;
+    state.log.push(`${player.name} получает ${remainingDamage} урона (${player.heroHealth} HP, ${player.armor} брони)`);
+  }
+}
+
+function gainArmor(state: GameState, playerIndex: number, amount: number): void {
+  const player = state.players[playerIndex];
+  player.armor += amount;
+  state.log.push(`${player.name} получает ${amount} брони (всего: ${player.armor})`);
 }
 
 function findMinion(state: GameState, instanceId: string): BoardMinion | null {

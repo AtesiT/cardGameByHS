@@ -166,7 +166,13 @@ export default function App() {
       }
     }
     
-    const state = createGameState('Игрок 1', mode === 'ai' ? 'AI Противник' : 'Игрок 2', deck1Preset, deck2Preset);
+    // Determine hero classes
+    const player1Class = heroClass || 'mage';
+    const player2Class = mode === 'ai' 
+      ? (['warrior', 'priest', 'hunter', 'rogue', 'shaman', 'warlock', 'paladin', 'druid'] as const)[Math.floor(Math.random() * 8)]
+      : player1Class; // For hotseat, both use same class for now
+    
+    const state = createGameState('Игрок 1', mode === 'ai' ? 'AI Противник' : 'Игрок 2', player1Class, player2Class, deck1Preset, deck2Preset);
     setGameState(state);
     setPlayerView(0);
     setScreen('game');
