@@ -1,11 +1,14 @@
 import { GameState, GameMode, EmotionType, BoardMinion } from '../types';
 import CardComponent from './CardComponent';
 import MinionComponent from './MinionComponent';
+import GameLog from './GameLog';
 import { useState, useRef, useEffect } from 'react';
 
 const HERO_SPRITES = {
   player: 'https://image.qwenlm.ai/generated-images/d182c55a-9290-47d4-9d20-ff81b67b10a0/_result.png',
 };
+
+const TABLE_BACKGROUND = 'https://image.qwenlm.ai/generated-images/ff110d45-b812-4a2d-8dcc-3fa86d58bfad/_result.png';
 
 interface Props {
   state: GameState;
@@ -34,10 +37,8 @@ export default function GameBoard({
 }: Props) {
   const [attackerId, setAttackerId] = useState<string | null>(null);
   const [showEmotions, setShowEmotions] = useState(false);
-  const [showLog, setShowLog] = useState(false);
   const [heroHit, setHeroHit] = useState<number | null>(null);
   const [actionDisplay, setActionDisplay] = useState<string | null>(null);
-  const logRef = useRef<HTMLDivElement>(null);
   const prevHealthRef = useRef<[number, number]>([state.players[0].heroHealth, state.players[1].heroHealth]);
   const prevStateRef = useRef(state);
 
@@ -46,9 +47,7 @@ export default function GameBoard({
   const opponentIdx = playerView === 0 ? 1 : 0;
   const isMyTurn = state.currentPlayerIndex === playerView;
 
-  useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-  }, [state.log]);
+  // Log is now handled by GameLog component
 
   // Detect hero damage for animation
   useEffect(() => {
@@ -149,12 +148,12 @@ export default function GameBoard({
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden px-scanlines" style={{
-      backgroundImage: 'url(https://image.qwenlm.ai/generated-images/f4de2e41-0032-425b-b077-84c485324d20/_result.png)',
+      backgroundImage: `url(${TABLE_BACKGROUND})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
     }}>
       {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-0 bg-black/30" />
 
       {/* Turn indicator bar */}
       <div className={`absolute top-0 left-0 right-0 h-2 z-20 ${isMyTurn ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -227,13 +226,11 @@ export default function GameBoard({
             </div>
           </div>
 
-          {/* Opponent hand (face down) */}
-          <div className="flex justify-center gap-1 mt-2">
-            {opponentPlayer.hand.map((_, i) => (
-              <div key={i} className="w-8 h-11 bg-blue-900 border-2 border-blue-600" style={{
-                backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)'
-              }} />
-            ))}
+          {/* Opponent hand (face down) - only show count, not cards */}
+          <div className="flex justify-center items-center gap-2 mt-2">
+            <div className="text-gray-400" style={{ fontSize: '8px' }}>
+              Карт в руке: {opponentPlayer.hand.length}
+            </div>
           </div>
         </div>
 
@@ -381,12 +378,6 @@ export default function GameBoard({
                     className="px-btn px-2 py-1 bg-purple-800 border-purple-400 text-purple-200 hover:bg-purple-700"
                     style={{ fontSize: '7px' }}
                   >💬</button>
-                  {/* Log */}
-                  <button
-                    onClick={() => setShowLog(!showLog)}
-                    className="px-btn px-2 py-1 bg-gray-800 border-gray-500 text-gray-300 hover:bg-gray-700"
-                    style={{ fontSize: '7px' }}
-                  >📜</button>
                   {/* Leave */}
                   <button
                     onClick={onLeave}
@@ -415,24 +406,10 @@ export default function GameBoard({
         </div>
       )}
 
-      {/* Game log */}
-      {showLog && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 max-h-72 bg-gray-900 border-4 border-amber-600 z-40">
-          <div className="flex justify-between items-center px-3 py-2 bg-gray-800 border-b-2 border-gray-700">
-            <span className="text-amber-400" style={{ fontSize: '8px' }}>📜 ЖУРНАЛ БОЯ</span>
-            <button onClick={() => setShowLog(false)} className="text-gray-400 hover:text-white" style={{ fontSize: '10px' }}>✕</button>
-          </div>
-          <div ref={logRef} className="p-3 overflow-y-auto max-h-56">
-            {state.log.slice(-30).map((entry, i) => (
-              <p key={i} className={`mb-1 ${entry.startsWith('---') ? 'text-amber-400 font-bold' : 'text-gray-300'}`} style={{ fontSize: '6px' }}>
-                {entry}
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Game log - always visible on the right */}
+      <GameLog log={state.log} />
 
-      <KeyboardHandler onEscape={() => { onCancelTargeting(); setAttackerId(null); setShowLog(false); }} />
+      <KeyboardHandler onEscape={() => { onCancelTargeting(); setAttackerId(null); }} />
     </div>
   );
 }

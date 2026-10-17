@@ -252,6 +252,22 @@ export default function App() {
     setAnimating(false); // Reset any stuck animation
     audio.playClick();
     endTurn(gameState);
+    
+    // If AI turn, add delay before AI acts
+    if (gameMode === 'ai' && gameState.currentPlayerIndex === 1) {
+      setTimeout(() => {
+        const actions = aiTurn(gameState);
+        setGameState({ ...gameState });
+        // Return control to player after AI finishes
+        setTimeout(() => {
+          setPlayerView(0);
+          setShowTurnBanner(true);
+          setTurnBannerText('Ваш ход!');
+          audio.playTurnStart();
+          setTimeout(() => setShowTurnBanner(false), 1500);
+        }, 500);
+      }, 1500); // AI waits 1.5 seconds before acting
+    }
     const newView = playerView === 0 ? 1 : 0;
     setPlayerView(newView as 0 | 1);
     setGameState({ ...gameState });

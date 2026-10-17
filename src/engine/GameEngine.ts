@@ -581,6 +581,28 @@ function executeBattlecry(state: GameState, playerIndex: number, minion: BoardMi
         state.log.push(`${minion.def.name}: ${spell.name} добавлен в руку`);
       }
       break;
+    case 'deal_2_to_all_enemies':
+      for (const m of opponent.board) {
+        dealDamageToMinion(state, m, 2, opponentIdx);
+      }
+      state.log.push(`${minion.def.name} наносит 2 урона всем вражеским существам`);
+      break;
+    case 'buff_self_0_1':
+      minion.currentHealth += 1;
+      minion.maxHealth += 1;
+      state.log.push(`${minion.def.name} получает +1 здоровье`);
+      break;
+    case 'freeze_random_enemy':
+      if (opponent.board.length > 0) {
+        const target = opponent.board[Math.floor(Math.random() * opponent.board.length)];
+        target.canAttack = false;
+        state.log.push(`${minion.def.name} замораживает ${target.def.name}`);
+      }
+      break;
+    case 'heal_hero_2':
+      player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + 2);
+      state.log.push(`${minion.def.name} восстанавливает 2 здоровья герою`);
+      break;
   }
 }
 
