@@ -1,1 +1,99 @@
 @import "tailwindcss";
+
+@layer base {
+  * {
+    image-rendering: pixelated;
+  }
+
+  body {
+    font-family: 'Press Start 2P', monospace;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: unset;
+  }
+
+  /* Pixel-perfect borders */
+  .border-3 {
+    border-width: 3px;
+  }
+}
+
+@layer components {
+  .pixel-border {
+    border: 3px solid;
+    border-image-slice: 3;
+    border-image-width: 3px;
+  }
+
+  .card-glow {
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.3), 0 0 20px rgba(251, 191, 36, 0.1);
+  }
+
+  .damage-flash {
+    animation: damageFlash 0.3s ease-out;
+  }
+
+  .heal-glow {
+    animation: healGlow 0.5s ease-out;
+  }
+}
+
+@layer utilities {
+  @keyframes damageFlash {
+    0% { background-color: rgba(239, 68, 68, 0.5); }
+    100% { background-color: transparent; }
+  }
+
+  @keyframes healGlow {
+    0% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.8); }
+    100% { box-shadow: none; }
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes cardPlay {
+    0% { transform: scale(1.2) translateY(-20px); opacity: 0.5; }
+    50% { transform: scale(1.1) translateY(0); }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  @keyframes attackMove {
+    0% { transform: translateX(0); }
+    30% { transform: translateX(20px); }
+    60% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+  }
+
+  @keyframes deathFade {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.1); filter: brightness(2); }
+    100% { opacity: 0; transform: scale(0.5); }
+  }
+
+  @keyframes floatUp {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-30px); opacity: 0; }
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-card-play {
+    animation: cardPlay 0.4s ease-out;
+  }
+
+  .animate-attack {
+    animation: attackMove 0.3s ease-out;
+  }
+
+  .animate-death {
+    animation: deathFade 0.5s ease-out forwards;
+  }
+
+  .animate-float-up {
+    animation: floatUp 1s ease-out forwards;
+  }
+}
