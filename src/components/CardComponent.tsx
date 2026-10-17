@@ -34,24 +34,25 @@ export default function CardComponent({ card, canPlay = false, isSelected = fals
 
   if (small) {
     return (
-      <button
-        onClick={onClick}
-        disabled={!canPlay}
-        className={`relative border-2 rounded transition-all duration-150 flex-shrink-0 ${
-          rarityColors[def.rarity]
-        } ${
-          canPlay
-            ? 'hover:scale-110 hover:-translate-y-2 cursor-pointer hover:z-10'
-            : 'opacity-60 cursor-not-allowed'
-        } ${
-          isSelected ? 'ring-2 ring-red-400 scale-105 -translate-y-3' : ''
-        }`}
-        style={{
-          width: '60px',
-          height: '80px',
-          background: `linear-gradient(to bottom, ${getTypeColor(def.type)}, ${getTypeColorDark(def.type)})`,
-        }}
-      >
+      <div className="relative group">
+        <button
+          onClick={onClick}
+          disabled={!canPlay}
+          className={`relative border-2 rounded transition-all duration-150 flex-shrink-0 ${
+            rarityColors[def.rarity]
+          } ${
+            canPlay
+              ? 'hover:scale-110 hover:-translate-y-2 cursor-pointer hover:z-10 animate-card-draw'
+              : 'opacity-60 cursor-not-allowed'
+          } ${
+            isSelected ? 'ring-2 ring-red-400 scale-105 -translate-y-3' : ''
+          }`}
+          style={{
+            width: '60px',
+            height: '80px',
+            background: `linear-gradient(to bottom, ${getTypeColor(def.type)}, ${getTypeColorDark(def.type)})`,
+          }}
+        >
         {/* Mana cost */}
         <div className="absolute -top-1 -left-1 w-5 h-5 bg-blue-600 border border-blue-300 rounded-full flex items-center justify-center">
           <span className="text-white font-bold" style={{ fontSize: '8px' }}>{def.cost}</span>
@@ -92,7 +93,17 @@ export default function CardComponent({ card, canPlay = false, isSelected = fals
 
         {/* Rarity gem */}
         <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full ${rarityGem[def.rarity]} opacity-50`} />
-      </button>
+        </button>
+        
+        {/* Tooltip on hover */}
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border-2 border-amber-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+          <p className="text-amber-400 font-bold mb-1" style={{ fontSize: '8px' }}>{def.name}</p>
+          <p className="text-gray-200" style={{ fontSize: '6px' }}>{def.description}</p>
+          {def.flavorText && (
+            <p className="text-gray-500 italic mt-1" style={{ fontSize: '5px' }}>"{def.flavorText}"</p>
+          )}
+        </div>
+      </div>
     );
   }
 

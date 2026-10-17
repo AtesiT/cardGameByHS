@@ -1,4 +1,5 @@
 import { BoardMinion } from '../types';
+import { useState, useEffect, useRef } from 'react';
 
 interface Props {
   minion: BoardMinion;
@@ -12,17 +13,37 @@ interface Props {
 export default function MinionComponent({ minion, isOpponent, isTargetable, isSelected, canAttack = false, onClick }: Props) {
   const isDamaged = minion.currentHealth < minion.maxHealth;
   const isBuffed = minion.currentAttack > minion.def.attack!;
+  const [justPlayed, setJustPlayed] = useState(true);
+  const [shaking, setShaking] = useState(false);
+  const prevHealthRef = useRef(minion.currentHealth);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setJustPlayed(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (minion.currentHealth < prevHealthRef.current) {
+      setShaking(true);
+      setTimeout(() => setShaking(false), 300);
+    }
+    prevHealthRef.current = minion.currentHealth;
+  }, [minion.currentHealth]);
 
   return (
     <button
       onClick={onClick}
       className={`relative border-2 rounded-lg transition-all duration-150 flex flex-col items-center justify-center ${
+        justPlayed ? 'animate-card-play' : ''
+      } ${
+        shaking ? 'animate-shake' : ''
+      } ${
         isTargetable && isOpponent
-          ? 'border-red-400 hover:bg-red-900/30 cursor-crosshair animate-pulse'
+          ? 'border-red-400 hover:bg-red-900/30 cursor-crosshair hover:animate-pulse'
           : isSelected
-          ? 'border-yellow-400 bg-yellow-900/30 scale-110 ring-2 ring-yellow-300'
+          ? 'border-yellow-400 bg-yellow-900/30 scale-110 ring-2 ring-yellow-300 shadow-lg shadow-yellow-400/40'
           : canAttack
-          ? 'border-green-400 hover:border-green-300 hover:scale-105 cursor-pointer'
+          ? 'border-green-400 hover:border-green-300 hover:scale-105 cursor-pointer hover:shadow-lg hover:shadow-green-400/30'
           : 'border-gray-500'
       } ${minion.hasDivineShield ? 'ring-2 ring-yellow-200 shadow-lg shadow-yellow-200/30' : ''}`}
       style={{

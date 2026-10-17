@@ -7,6 +7,7 @@ import GameBoard from './components/GameBoard';
 import Collection from './components/Collection';
 import ResultScreen from './components/ResultScreen';
 import PassDevice from './components/PassDevice';
+import { DamageNumberDisplay, useDamageNumbers } from './components/DamageNumbers';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('menu');
@@ -21,6 +22,7 @@ export default function App() {
   const [targeting, setTargeting] = useState(false);
   const [animating, setAnimating] = useState(false);
   const [showPassDevice, setShowPassDevice] = useState(false);
+  const { numbers: damageNumbers, addNumber } = useDamageNumbers();
 
   useEffect(() => {
     audio.init();
@@ -57,8 +59,15 @@ export default function App() {
     // Play without target
     const result = playCard(gameState, playerView, instanceId, null);
     if (result.success) {
-      if (card.def.type === 'spell') audio.playCardPlaySpell();
-      else audio.playCardPlay();
+      if (card.def.type === 'spell') {
+        audio.playCardPlaySpell();
+        // Show spell effect
+        setShowTurnBanner(true);
+        setTurnBannerText(`✨ ${card.def.name}!`);
+        setTimeout(() => setShowTurnBanner(false), 800);
+      } else {
+        audio.playCardPlay();
+      }
       setGameState({ ...gameState });
       checkAITurn(gameState);
     }
@@ -252,6 +261,7 @@ export default function App() {
           onWeaponAttack={handleWeaponAttack}
           onCancelTargeting={cancelTargeting}
           onLeave={() => { audio.playClick(); setScreen('menu'); setGameState(null); }}
+          onDamageNumber={addNumber}
         />
       )}
 
@@ -282,6 +292,9 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Damage numbers */}
+      <DamageNumberDisplay numbers={damageNumbers} />
     </div>
   );
 }

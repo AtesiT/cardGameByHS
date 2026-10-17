@@ -206,23 +206,23 @@ export const CARD_DATABASE: CardDef[] = [
   // ============= ОРУЖИЯ (5) =============
   {
     id: 'w01', name: 'Меч новобранца', type: 'weapon', cost: 1, rarity: 'common',
-    description: '',
+    description: 'Герой может атаковать этим оружием.',
     flavorText: 'Прост, но надёжен.',
     keywords: [],
     weaponAttack: 2, weaponDurability: 2,
   },
   {
     id: 'w02', name: 'Боевой топор', type: 'weapon', cost: 3, rarity: 'common',
-    description: '',
+    description: 'Герой может атаковать этим оружием.',
     flavorText: 'Тяжёлый и беспощадный.',
     keywords: [],
     weaponAttack: 3, weaponDurability: 2,
   },
   {
     id: 'w03', name: 'Клинок теней', type: 'weapon', cost: 3, rarity: 'rare',
-    description: 'Боевой клич: +1 атака в этот ход.',
+    description: 'Герой атакует этим оружием. Прочное лезвие.',
     flavorText: 'Режет не только плоть, но и душу.',
-    keywords: ['battlecry'],
+    keywords: [],
     weaponAttack: 2, weaponDurability: 3,
   },
   {

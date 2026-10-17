@@ -20,23 +20,46 @@ interface Props {
   onWeaponAttack: (targetId: string, targetIsHero: boolean) => void;
   onCancelTargeting: () => void;
   onLeave: () => void;
+  onDamageNumber?: (value: number, x: number, y: number, isHeal?: boolean) => void;
 }
 
 export default function GameBoard({
   state, playerView, gameMode, selectedCard, targeting, animating, emotion,
   onPlayCard, onAttack, onEndTurn, onHeroPower, onEmotion, onTargetSelect,
-  onWeaponAttack, onCancelTargeting, onLeave
+  onWeaponAttack, onCancelTargeting, onLeave, onDamageNumber
 }: Props) {
   const [attackerId, setAttackerId] = useState<string | null>(null);
   const [showEmotions, setShowEmotions] = useState(false);
   const [showLog, setShowLog] = useState(false);
+  const [heroHit, setHeroHit] = useState<number | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  const prevHealthRef = useRef<[number, number]>([state.players[0].heroHealth, state.players[1].heroHealth]);
 
   useEffect(() => {
     if (logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [state.log]);
+
+  // Detect hero damage for animation
+  useEffect(() => {
+    for (let i = 0; i < 2; i++) {
+      const diff = state.players[i].heroHealth - prevHealthRef.current[i];
+      if (diff < 0 && onDamageNumber) {
+        setHeroHit(i);
+        const x = window.innerWidth / 2 + (i === playerView ? 0 : 0);
+        const y = i === playerView ? window.innerHeight - 120 : 80;
+        onDamageNumber(Math.abs(diff), x, y, false);
+        setTimeout(() => setHeroHit(null), 400);
+      }
+      if (diff > 0 && onDamageNumber) {
+        const x = window.innerWidth / 2;
+        const y = i === playerView ? window.innerHeight - 120 : 80;
+        onDamageNumber(diff, x, y, true);
+      }
+    }
+    prevHealthRef.current = [state.players[0].heroHealth, state.players[1].heroHealth];
+  }, [state.players[0].heroHealth, state.players[1].heroHealth]);
 
   const myPlayer = state.players[playerView];
   const opponentPlayer = state.players[playerView === 0 ? 1 : 0];
@@ -92,7 +115,16 @@ export default function GameBoard({
       }} />
 
       {/* Turn indicator */}
-      <div className={`absolute top-0 left-0 right-0 h-1 ${isMyTurn ? 'bg-green-400' : 'bg-red-400'} transition-colors duration-300`} />
+      <div className={`absolute top-0 left-0 right-0 h-1.5 ${isMyTurn ? 'bg-gradient-to-r from-green-400 via-green-300 to-green-400 animate-glow-pulse' : 'bg-red-400'} transition-colors duration-300`} />
+      
+      {/* Turn label */}
+      <div className={`absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full ${
+        isMyTurn ? 'bg-green-900/80 border border-green-400' : 'bg-red-900/80 border border-red-400'
+      }`}>
+        <span className={`${isMyTurn ? 'text-green-300' : 'text-red-300'}`} style={{ fontSize: '7px' }}>
+          {isMyTurn ? '⚡ ВАШ ХОД' : '⏳ ХОД ПРОТИВНИКА'}
+        </span>
+      </div>
 
       {/* Targeting overlay */}
       {targeting && (
@@ -120,6 +152,7 @@ export default function GameBoard({
             isTargetable={targeting || !!attackerId}
             onClick={() => handleHeroClick(opponentIdx)}
             emotion={emotion?.player === opponentIdx ? emotion?.type : null}
+            isHit={heroHit === opponentIdx}
           />
           <div className="flex items-center gap-2">
             {/* Opponent weapon */}
@@ -223,6 +256,7 @@ export default function GameBoard({
             isTargetable={targeting}
             onClick={() => handleHeroClick(playerView)}
             emotion={emotion?.player === playerView ? emotion?.type : null}
+            isHit={heroHit === playerView}
           />
 
           <div className="flex items-center gap-2">
@@ -346,8 +380,8 @@ export default function GameBoard({
 
 // ============= SUB-COMPONENTS =============
 
-function HeroPortrait({ player, isOpponent, isTargetable, onClick, emotion }: {
-  player: any; isOpponent: boolean; isTargetable: boolean; onClick: () => void; emotion: EmotionType | null;
+function HeroPortrait({ player, isOpponent, isTargetable, onClick, emotion, isHit }: {
+  player: any; isOpponent: boolean; isTargetable: boolean; onClick: () => void; emotion: EmotionType | null; isHit?: boolean;
 }) {
   const healthPercent = (player.heroHealth / player.maxHeroHealth) * 100;
   const healthColor = healthPercent > 60 ? 'text-green-400' : healthPercent > 30 ? 'text-yellow-400' : 'text-red-400';
@@ -357,6 +391,8 @@ function HeroPortrait({ player, isOpponent, isTargetable, onClick, emotion }: {
       <button
         onClick={onClick}
         className={`w-16 h-16 border-3 rounded-lg flex flex-col items-center justify-center transition-all ${
+          isHit ? 'animate-hero-hit' : ''
+        } ${
           isTargetable
             ? 'border-red-400 bg-red-900/50 hover:bg-red-800/50 cursor-crosshair animate-pulse'
             : 'border-amber-600 bg-gray-800'
@@ -367,12 +403,21 @@ function HeroPortrait({ player, isOpponent, isTargetable, onClick, emotion }: {
           {player.heroHealth}❤️
         </span>
       </button>
+      {/* Health bar */}
+      <div className="w-16 h-1.5 bg-gray-700 rounded-full mt-1 overflow-hidden border border-gray-600">
+        <div
+          className={`h-full transition-all duration-300 ${
+            healthPercent > 60 ? 'bg-green-500' : healthPercent > 30 ? 'bg-yellow-500' : 'bg-red-500'
+          }`}
+          style={{ width: `${Math.max(0, healthPercent)}%` }}
+        />
+      </div>
       {emotion && (
         <div className="absolute -top-8 left-1/2 -translate-x-1/2 animate-bounce text-lg">
           {emotion === 'greetings' ? '👋' : emotion === 'thanks' ? '🙏' : emotion === 'threat' ? '😈' : '😮'}
         </div>
       )}
-      <div className="text-center mt-1">
+      <div className="text-center mt-0.5">
         <span className="text-gray-300" style={{ fontSize: '6px' }}>{player.name}</span>
       </div>
     </div>

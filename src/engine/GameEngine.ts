@@ -105,13 +105,11 @@ export function startTurn(state: GameState): void {
   // Draw a card
   drawCard(state, idx);
 
-  // Reset attacks
+  // Reset attacks - all minions on board can attack now
   for (const minion of player.board) {
     minion.hasAttacked = false;
     minion.attacksThisTurn = 0;
-    if (minion.hasCharge || minion.canAttack) {
-      minion.canAttack = true;
-    }
+    minion.canAttack = minion.currentAttack > 0;
   }
 
   player.heroPowerUsed = false;

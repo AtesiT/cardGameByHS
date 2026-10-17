@@ -77,6 +77,38 @@
     100% { transform: translateY(-30px); opacity: 0; }
   }
 
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-4px) rotate(-2deg); }
+    40% { transform: translateX(4px) rotate(2deg); }
+    60% { transform: translateX(-3px) rotate(-1deg); }
+    80% { transform: translateX(3px) rotate(1deg); }
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 5px rgba(74, 222, 128, 0.3); }
+    50% { box-shadow: 0 0 15px rgba(74, 222, 128, 0.6), 0 0 25px rgba(74, 222, 128, 0.3); }
+  }
+
+  @keyframes spell-cast {
+    0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+    50% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  @keyframes hero-hit {
+    0% { transform: scale(1); }
+    25% { transform: scale(0.9) translateX(-3px); filter: brightness(2) saturate(0.5); }
+    50% { transform: scale(1.05) translateX(3px); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes card-draw {
+    0% { transform: translateY(-50px) scale(0.5) rotate(-15deg); opacity: 0; }
+    60% { transform: translateY(5px) scale(1.05) rotate(2deg); opacity: 1; }
+    100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+  }
+
   .animate-slide-up {
     animation: slideUp 0.3s ease-out;
   }
@@ -95,5 +127,25 @@
 
   .animate-float-up {
     animation: floatUp 1s ease-out forwards;
+  }
+
+  .animate-shake {
+    animation: shake 0.3s ease-out;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 1.5s ease-in-out infinite;
+  }
+
+  .animate-spell-cast {
+    animation: spell-cast 0.5s ease-out;
+  }
+
+  .animate-hero-hit {
+    animation: hero-hit 0.4s ease-out;
+  }
+
+  .animate-card-draw {
+    animation: card-draw 0.5s ease-out;
   }
 }
