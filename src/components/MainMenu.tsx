@@ -1,11 +1,15 @@
 import { GameMode } from '../types';
+import { DECK_PRESETS } from '../data/cards';
+import { useState } from 'react';
 
 interface Props {
-  onStartGame: (mode: GameMode) => void;
+  onStartGame: (mode: GameMode, deckPreset?: string) => void;
   onShowCollection: () => void;
 }
 
 export default function MainMenu({ onStartGame, onShowCollection }: Props) {
+  const [selectedDeck, setSelectedDeck] = useState<keyof typeof DECK_PRESETS>('balanced');
+  const [showDeckSelect, setShowDeckSelect] = useState(false);
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-bg-dark px-scanlines">
       {/* Background image */}
@@ -77,16 +81,39 @@ export default function MainMenu({ onStartGame, onShowCollection }: Props) {
 
         {/* Buttons */}
         <div className="flex flex-col gap-4 w-72">
-          <PixelButton onClick={() => onStartGame('hotseat')} color="green">
+          <PixelButton onClick={() => onStartGame('hotseat', selectedDeck)} color="green">
             🎮 ИГРА ВДВОЁМ
           </PixelButton>
-          <PixelButton onClick={() => onStartGame('ai')} color="blue">
+          <PixelButton onClick={() => onStartGame('ai', selectedDeck)} color="blue">
             🤖 ПРОТИВ AI
+          </PixelButton>
+          <PixelButton onClick={() => setShowDeckSelect(!showDeckSelect)} color="amber">
+            📋 КОЛОДА: {DECK_PRESETS[selectedDeck].name}
           </PixelButton>
           <PixelButton onClick={onShowCollection} color="purple">
             📚 КОЛЛЕКЦИЯ
           </PixelButton>
         </div>
+
+        {/* Deck selection */}
+        {showDeckSelect && (
+          <div className="bg-gray-900 border-4 border-amber-500 p-4 w-72">
+            <p className="text-amber-400 mb-3" style={{ fontSize: '8px' }}>ВЫБЕРИТЕ КОЛОДУ:</p>
+            {Object.entries(DECK_PRESETS).map(([key, preset]) => (
+              <button
+                key={key}
+                onClick={() => { setSelectedDeck(key as keyof typeof DECK_PRESETS); setShowDeckSelect(false); }}
+                className={`w-full text-left px-btn py-2 mb-2 ${
+                  selectedDeck === key ? 'bg-amber-800 border-amber-400' : 'bg-gray-800 border-gray-600 hover:bg-gray-700'
+                }`}
+                style={{ fontSize: '7px' }}
+              >
+                <div className="text-amber-300">{preset.name}</div>
+                <div className="text-gray-400" style={{ fontSize: '6px' }}>{preset.description}</div>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="text-center mt-4">
@@ -109,6 +136,7 @@ function PixelButton({ children, onClick, color }: { children: React.ReactNode; 
     green: 'bg-green-800 border-green-400 text-green-100 hover:bg-green-700',
     blue: 'bg-blue-800 border-blue-400 text-blue-100 hover:bg-blue-700',
     purple: 'bg-purple-800 border-purple-400 text-purple-100 hover:bg-purple-700',
+    amber: 'bg-amber-800 border-amber-400 text-amber-100 hover:bg-amber-700',
   };
 
   return (

@@ -36,8 +36,10 @@ export default function GameBoard({
   const [showEmotions, setShowEmotions] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [heroHit, setHeroHit] = useState<number | null>(null);
+  const [actionDisplay, setActionDisplay] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const prevHealthRef = useRef<[number, number]>([state.players[0].heroHealth, state.players[1].heroHealth]);
+  const prevStateRef = useRef(state);
 
   const myPlayer = state.players[playerView];
   const opponentPlayer = state.players[playerView === 0 ? 1 : 0];
@@ -48,6 +50,7 @@ export default function GameBoard({
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [state.log]);
 
+  // Detect hero damage for animation
   useEffect(() => {
     for (let i = 0; i < 2; i++) {
       const diff = state.players[i].heroHealth - prevHealthRef.current[i];
@@ -64,6 +67,48 @@ export default function GameBoard({
     }
     prevHealthRef.current = [state.players[0].heroHealth, state.players[1].heroHealth];
   }, [state.players[0].heroHealth, state.players[1].heroHealth]);
+
+  // Detect actions (card plays, attacks) for AI and opponent visualization
+  useEffect(() => {
+    const prev = prevStateRef.current;
+    
+    // Check for new minions on board
+    for (let i = 0; i < 2; i++) {
+      const prevMinions = new Set(prev.players[i].board.map(m => m.instanceId));
+      const newMinions = state.players[i].board.filter(m => !prevMinions.has(m.instanceId));
+      
+      if (newMinions.length > 0 && i !== playerView) {
+        const minion = newMinions[0];
+        setActionDisplay(`${state.players[i].name} разыгрывает ${minion.def.name}!`);
+        setTimeout(() => setActionDisplay(null), 1500);
+      }
+    }
+
+    // Check for attacks (minion health decreased)
+    for (let i = 0; i < 2; i++) {
+      for (const minion of state.players[i].board) {
+        const prevMinion = prev.players[i].board.find(m => m.instanceId === minion.instanceId);
+        if (prevMinion && minion.currentHealth < prevMinion.currentHealth) {
+          const damage = prevMinion.currentHealth - minion.currentHealth;
+          setActionDisplay(`${minion.def.name} получает ${damage} урона!`);
+          setTimeout(() => setActionDisplay(null), 1200);
+        }
+      }
+    }
+
+    // Check for hand size decrease (card played)
+    for (let i = 0; i < 2; i++) {
+      if (state.players[i].hand.length < prev.players[i].hand.length && i !== playerView) {
+        const manaDiff = prev.players[i].currentMana - state.players[i].currentMana;
+        if (manaDiff > 0) {
+          setActionDisplay(`${state.players[i].name} тратит ${manaDiff} маны`);
+          setTimeout(() => setActionDisplay(null), 1000);
+        }
+      }
+    }
+
+    prevStateRef.current = state;
+  }, [state]);
 
   const handleMinionClick = (minion: BoardMinion, ownerIdx: number) => {
     if (targeting && selectedCard) {
@@ -134,6 +179,13 @@ export default function GameBoard({
       {attackerId && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 bg-yellow-900 border-2 border-yellow-400 px-4 py-2">
           <span className="text-yellow-200" style={{ fontSize: '8px' }}>⚔ ВЫБЕРИТЕ ЦЕЛЬ АТАКИ</span>
+        </div>
+      )}
+
+      {/* Action display - shows what opponent/AI is doing */}
+      {actionDisplay && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 bg-black/90 border-4 border-purple-500 px-6 py-3 animate-px-slide-in">
+          <span className="text-purple-200" style={{ fontSize: '10px' }}>⚡ {actionDisplay}</span>
         </div>
       )}
 

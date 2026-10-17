@@ -1,7 +1,7 @@
 import { CardDef } from '../types';
 
 export const CARD_DATABASE: CardDef[] = [
-  // ============= СУЩЕСТВА (15) =============
+  // ============= СУЩЕСТВА (25) =============
   {
     id: 'm01', name: 'Огненный имп', type: 'minion', cost: 1, rarity: 'common',
     attack: 3, health: 2,
@@ -9,6 +9,81 @@ export const CARD_DATABASE: CardDef[] = [
     flavorText: 'Маленький, но очень горячий.',
     keywords: ['battlecry'],
     battlecryDesc: 'deal_1_to_own_hero',
+  },
+  {
+    id: 'm16', name: 'Лесной волк', type: 'minion', cost: 1, rarity: 'common',
+    attack: 2, health: 1,
+    description: 'Рывок.',
+    flavorText: 'Быстрый и голодный.',
+    keywords: ['charge'],
+  },
+  {
+    id: 'm17', name: 'Каменный голем', type: 'minion', cost: 2, rarity: 'common',
+    attack: 2, health: 3,
+    description: 'Провокация.',
+    flavorText: 'Тихий, но надёжный защитник.',
+    keywords: ['taunt'],
+  },
+  {
+    id: 'm18', name: 'Тёмный маг', type: 'minion', cost: 4, rarity: 'rare',
+    attack: 4, health: 4,
+    description: 'Боевой клич: Нанести 2 урона случайному врагу.',
+    flavorText: 'Тени слушаются его.',
+    keywords: ['battlecry'],
+    battlecryDesc: 'deal_2_random_enemy',
+  },
+  {
+    id: 'm19', name: 'Целительница', type: 'minion', cost: 3, rarity: 'common',
+    attack: 2, health: 4,
+    description: 'Боевой клич: Восстановить 3 здоровья вашему герою.',
+    flavorText: 'Свет всегда с нами.',
+    keywords: ['battlecry'],
+    battlecryDesc: 'heal_hero_3',
+  },
+  {
+    id: 'm20', name: 'Огненный дракон', type: 'minion', cost: 6, rarity: 'epic',
+    attack: 6, health: 5,
+    description: 'Боевой клич: Нанести 3 урона всем вражеским существам.',
+    flavorText: 'Пламя очищает всё.',
+    keywords: ['battlecry'],
+    battlecryDesc: 'deal_3_to_all_enemies',
+  },
+  {
+    id: 'm21', name: 'Призрачный убийца', type: 'minion', cost: 5, rarity: 'rare',
+    attack: 4, health: 3,
+    description: 'Невидимость до атаки. Яд.',
+    flavorText: 'Ты не увидишь его.',
+    keywords: ['poisonous'],
+  },
+  {
+    id: 'm22', name: 'Жрец света', type: 'minion', cost: 2, rarity: 'common',
+    attack: 1, health: 3,
+    description: 'Боевой клич: +1 здоровье другому случайному союзному существу.',
+    flavorText: 'Вера делает сильнее.',
+    keywords: ['battlecry'],
+    battlecryDesc: 'buff_random_friendly_health',
+  },
+  {
+    id: 'm23', name: 'Берсерк', type: 'minion', cost: 3, rarity: 'common',
+    attack: 4, health: 2,
+    description: 'Рывок.',
+    flavorText: 'Ярость ослепляет.',
+    keywords: ['charge'],
+  },
+  {
+    id: 'm24', name: 'Ледяной элементаль', type: 'minion', cost: 5, rarity: 'rare',
+    attack: 4, health: 5,
+    description: 'Боевой клич: Заморозить случайное вражеское существо.',
+    flavorText: 'Холод пронизывает до костей.',
+    keywords: ['battlecry'],
+    battlecryDesc: 'freeze_random_enemy',
+  },
+  {
+    id: 'm25', name: 'Гигант', type: 'minion', cost: 8, rarity: 'epic',
+    attack: 8, health: 8,
+    description: 'Стоит на 1 ману меньше за каждое существо на поле.',
+    flavorText: 'Чем больше врагов — тем он слабее.',
+    keywords: [],
   },
   {
     id: 'm02', name: 'Серебряный рыцарь', type: 'minion', cost: 3, rarity: 'rare',
@@ -120,7 +195,7 @@ export const CARD_DATABASE: CardDef[] = [
     deathrattleDesc: 'return_to_hand_buffed',
   },
 
-  // ============= ЗАКЛИНАНИЯ (10) =============
+  // ============= ЗАКЛИНАНИЯ (15) =============
   {
     id: 's01', name: 'Огненный шар', type: 'spell', cost: 4, rarity: 'common',
     description: 'Нанести 6 урона цели.',
@@ -128,6 +203,47 @@ export const CARD_DATABASE: CardDef[] = [
     keywords: [],
     spellTarget: 'any',
     spellDamage: 6,
+  },
+  {
+    id: 's11', name: 'Ледяная стрела', type: 'spell', cost: 2, rarity: 'common',
+    description: 'Нанести 3 урона цели.',
+    flavorText: 'Холодна как зимний ветер.',
+    keywords: [],
+    spellTarget: 'any',
+    spellDamage: 3,
+  },
+  {
+    id: 's12', name: 'Молния', type: 'spell', cost: 1, rarity: 'common',
+    description: 'Нанести 2 урона случайному врагу.',
+    flavorText: 'Небеса говорят громко.',
+    keywords: [],
+    spellTarget: 'none',
+    spellDamage: 2,
+  },
+  {
+    id: 's13', name: 'Взрыв', type: 'spell', cost: 5, rarity: 'rare',
+    description: 'Нанести 3 урона всем вражеским существам.',
+    flavorText: 'Бабах!',
+    keywords: [],
+    spellTarget: 'none',
+    spellAoEDamage: 3,
+  },
+  {
+    id: 's14', name: 'Священный свет', type: 'spell', cost: 1, rarity: 'common',
+    description: 'Восстановить 4 здоровья.',
+    flavorText: 'Тёплый и приятный.',
+    keywords: [],
+    spellTarget: 'self_hero',
+    spellHeal: 4,
+  },
+  {
+    id: 's15', name: 'Похищение души', type: 'spell', cost: 3, rarity: 'rare',
+    description: 'Нанести 3 урона. Восстановить 3 здоровья.',
+    flavorText: 'Жизнь за жизнь.',
+    keywords: [],
+    spellTarget: 'any',
+    spellDamage: 3,
+    spellHeal: 3,
   },
   {
     id: 's02', name: 'Ледяная стрела', type: 'spell', cost: 2, rarity: 'common',
@@ -203,13 +319,27 @@ export const CARD_DATABASE: CardDef[] = [
     spellDestroy: true,
   },
 
-  // ============= ОРУЖИЯ (5) =============
+  // ============= ОРУЖИЯ (7) =============
   {
     id: 'w01', name: 'Меч новобранца', type: 'weapon', cost: 1, rarity: 'common',
     description: 'Герой может атаковать этим оружием.',
     flavorText: 'Прост, но надёжен.',
     keywords: [],
     weaponAttack: 2, weaponDurability: 2,
+  },
+  {
+    id: 'w06', name: 'Боевой топор', type: 'weapon', cost: 3, rarity: 'common',
+    description: 'Герой может атаковать этим оружием.',
+    flavorText: 'Тяжёлый и беспощадный.',
+    keywords: [],
+    weaponAttack: 3, weaponDurability: 2,
+  },
+  {
+    id: 'w07', name: 'Молот правосудия', type: 'weapon', cost: 4, rarity: 'rare',
+    description: 'Боевой клич: Восстановить 3 здоровья.',
+    flavorText: 'Вершит суд и карает.',
+    keywords: ['battlecry'],
+    weaponAttack: 4, weaponDurability: 2,
   },
   {
     id: 'w02', name: 'Боевой топор', type: 'weapon', cost: 3, rarity: 'common',
@@ -263,4 +393,27 @@ export function getCardById(id: string): CardDef | undefined {
 export function getRandomSpell(): CardDef {
   const spells = CARD_DATABASE.filter(c => c.type === 'spell');
   return spells[Math.floor(Math.random() * spells.length)];
+}
+
+// ============= PRESET DECKS =============
+export const DECK_PRESETS = {
+  aggressive: {
+    name: 'Агрессивная',
+    description: 'Быстрые существа и прямой урон',
+    cards: ['m01', 'm01', 'm16', 'm16', 'm23', 'm23', 'm02', 'm02', 'm18', 'm18', 'm19', 'm19', 'm05', 'm05', 'm12', 'm12', 's01', 's01', 's11', 's11', 's12', 's12', 's13', 's13', 'w01', 'w01', 'w02', 'w02', 'm20', 'm25'],
+  },
+  control: {
+    name: 'Контрольная',
+    description: 'Защита и поздние сильные карты',
+    cards: ['m17', 'm17', 'm04', 'm04', 'm13', 'm13', 'm11', 'm11', 'm06', 'm06', 'm15', 'm15', 'm09', 'm09', 'm03', 'm03', 's03', 's03', 's05', 's05', 's10', 's10', 's14', 's14', 'w04', 'w04', 'w05', 'w05', 'm19', 'm19'],
+  },
+  balanced: {
+    name: 'Сбалансированная',
+    description: 'Разнообразие стратегий',
+    cards: ['m01', 'm16', 'm17', 'm02', 'm18', 'm19', 'm23', 'm04', 'm11', 'm03', 'm12', 'm20', 'm15', 'm09', 'm25', 's01', 's11', 's12', 's13', 's14', 's15', 's03', 's05', 's06', 's10', 'w01', 'w02', 'w04', 'w05', 'm06'],
+  },
+};
+
+export function getDeckPreset(presetName: keyof typeof DECK_PRESETS): string[] {
+  return DECK_PRESETS[presetName].cards;
 }

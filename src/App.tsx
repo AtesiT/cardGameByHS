@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { GameState, Screen, GameMode, EmotionType } from './types';
 import { createGameState, startGame, playCard, attack, endTurn, useHeroPower, aiTurn } from './engine/GameEngine';
 import { audio } from './audio/AudioEngine';
+import { DECK_PRESETS } from './data/cards';
 import MainMenu from './components/MainMenu';
 import GameBoard from './components/GameBoard';
 import Collection from './components/Collection';
@@ -28,11 +29,24 @@ export default function App() {
     audio.init();
   }, []);
 
-  const startNewGame = useCallback((mode: GameMode) => {
+  const startNewGame = useCallback((mode: GameMode, deckPreset?: string) => {
     audio.resume();
     audio.playClick();
     setGameMode(mode);
-    const state = createGameState('Игрок 1', mode === 'ai' ? 'AI Противник' : 'Игрок 2');
+    
+    // Get deck preset cards if specified
+    let deck1Preset: string[] | undefined;
+    let deck2Preset: string[] | undefined;
+    if (deckPreset) {
+      const preset = DECK_PRESETS[deckPreset as keyof typeof DECK_PRESETS];
+      if (preset) {
+        deck1Preset = preset.cards;
+        // AI uses random deck
+        deck2Preset = undefined;
+      }
+    }
+    
+    const state = createGameState('Игрок 1', mode === 'ai' ? 'AI Противник' : 'Игрок 2', deck1Preset, deck2Preset);
     setGameState(state);
     setPlayerView(0);
     setScreen('game');

@@ -19,15 +19,27 @@ function createCardInstance(def: CardDef): CardInstance {
   return { instanceId: nextInstanceId(), cardId: def.id, def };
 }
 
-function buildDeck(): CardInstance[] {
-  // Build a 30-card deck: 2 copies of each common, 1 of rare+
-  const deck: CardInstance[] = [];
-  for (const card of CARD_DATABASE) {
-    const copies = card.rarity === 'common' ? 2 : 1;
-    for (let i = 0; i < copies; i++) {
-      deck.push(createCardInstance(card));
+function buildDeck(presetCards?: string[]): CardInstance[] {
+  let deck: CardInstance[] = [];
+  
+  if (presetCards && presetCards.length > 0) {
+    // Use preset deck
+    for (const cardId of presetCards) {
+      const cardDef = getCardById(cardId);
+      if (cardDef) {
+        deck.push(createCardInstance(cardDef));
+      }
+    }
+  } else {
+    // Build a 30-card deck: 2 copies of each common, 1 of rare+
+    for (const card of CARD_DATABASE) {
+      const copies = card.rarity === 'common' ? 2 : 1;
+      for (let i = 0; i < copies; i++) {
+        deck.push(createCardInstance(card));
+      }
     }
   }
+  
   // If deck is more than 30, trim. If less, add duplicates
   while (deck.length > 30) deck.pop();
   while (deck.length < 30) {
@@ -37,7 +49,7 @@ function buildDeck(): CardInstance[] {
   return shuffleArray(deck);
 }
 
-function createPlayer(name: string, id: string): Player {
+function createPlayer(name: string, id: string, deckPreset?: string[]): Player {
   return {
     id,
     name,
@@ -45,7 +57,7 @@ function createPlayer(name: string, id: string): Player {
     maxHeroHealth: 30,
     maxMana: 0,
     currentMana: 0,
-    deck: buildDeck(),
+    deck: buildDeck(deckPreset),
     hand: [],
     board: [],
     fatigue: 0,
@@ -53,10 +65,10 @@ function createPlayer(name: string, id: string): Player {
   };
 }
 
-export function createGameState(player1Name: string, player2Name: string): GameState {
+export function createGameState(player1Name: string, player2Name: string, deck1Preset?: string[], deck2Preset?: string[]): GameState {
   instanceCounter = 0;
-  const p1 = createPlayer(player1Name, 'player1');
-  const p2 = createPlayer(player2Name, 'player2');
+  const p1 = createPlayer(player1Name, 'player1', deck1Preset);
+  const p2 = createPlayer(player2Name, 'player2', deck2Preset);
 
   const state: GameState = {
     players: [p1, p2],
@@ -666,6 +678,8 @@ export function aiTurn(state: GameState): GameAction[] {
   const opponent = state.players[0 === aiIndex ? 1 : 0];
   const opponentIdx = 0 === aiIndex ? 1 : 0;
 
+  state.log.push(`🤖 ${player.name} думает...`);
+
   // Play cards (greedy: play most expensive cards first)
   let played = true;
   while (played) {
@@ -702,6 +716,7 @@ export function aiTurn(state: GameState): GameAction[] {
 
       const result = playCard(state, aiIndex, card.instanceId, targetId);
       if (result.success) {
+        state.log.push(`🤖 AI разыгрывает ${card.def.name}`);
         actions.push({ type: 'play_card', playerId: player.id, cardInstanceId: card.instanceId, targetInstanceId: targetId });
         played = true;
         break;
@@ -735,6 +750,12 @@ export function aiTurn(state: GameState): GameAction[] {
 
     const result = attack(state, aiIndex, minion.instanceId, targetId, targetIsHero, opponentIdx);
     if (result.success) {
+      if (targetIsHero) {
+        state.log.push(`🤖 AI атакует героя ${minion.def.name}ом`);
+      } else {
+        const target = opponent.board.find(m => m.instanceId === targetId);
+        state.log.push(`🤖 AI атакует ${minion.def.name} → ${target?.def.name || 'цель'}`);
+      }
       actions.push({ type: 'attack', playerId: player.id, cardInstanceId: minion.instanceId, targetInstanceId: targetId, targetIsHero } as any);
     }
   }
