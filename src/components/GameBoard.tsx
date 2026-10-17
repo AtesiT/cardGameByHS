@@ -157,16 +157,38 @@ export default function GameBoard({
           <div className="flex items-center gap-2">
             {/* Opponent weapon */}
             {opponentPlayer.weapon && (
-              <div className="bg-gray-800 border-2 border-amber-600 px-2 py-1 text-center">
-                <div className="text-amber-400" style={{ fontSize: '8px' }}>⚔️ {opponentPlayer.weapon.name}</div>
-                <div className="text-white" style={{ fontSize: '7px' }}>{opponentPlayer.weapon.attack}/{opponentPlayer.weapon.durability}</div>
+              <div className="relative group">
+                <div className="bg-gray-800 border-2 border-amber-600 px-2 py-1 text-center">
+                  <div className="text-amber-400" style={{ fontSize: '8px' }}>⚔️ {opponentPlayer.weapon.name}</div>
+                  <div className="text-white" style={{ fontSize: '7px' }}>{opponentPlayer.weapon.attack}/{opponentPlayer.weapon.durability}</div>
+                </div>
+                {/* Weapon tooltip */}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-gray-900 border-2 border-amber-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                  <p className="text-amber-400 font-bold mb-1" style={{ fontSize: '8px' }}>{opponentPlayer.weapon.name}</p>
+                  <p className="text-gray-200" style={{ fontSize: '6px' }}>Оружие противника. Герой противника может атаковать этим оружием.</p>
+                  <div className="flex gap-2 mt-1 text-xs">
+                    <span className="text-yellow-300">⚔ {opponentPlayer.weapon.attack}</span>
+                    <span className="text-green-300">🛡 {opponentPlayer.weapon.durability}</span>
+                  </div>
+                </div>
               </div>
             )}
             {/* Opponent mana */}
-            <ManaCrystal current={opponentPlayer.currentMana} max={opponentPlayer.maxMana} />
+            <div className="relative group">
+              <ManaCrystal current={opponentPlayer.currentMana} max={opponentPlayer.maxMana} />
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-40 bg-gray-900 border-2 border-blue-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                <p className="text-blue-400 font-bold" style={{ fontSize: '7px' }}>Мана: {opponentPlayer.currentMana}/{opponentPlayer.maxMana}</p>
+              </div>
+            </div>
             {/* Opponent deck */}
-            <div className="bg-blue-900 border-2 border-blue-400 w-10 h-14 flex items-center justify-center">
-              <span className="text-blue-200" style={{ fontSize: '8px' }}>{opponentPlayer.deck.length}</span>
+            <div className="relative group">
+              <div className="bg-blue-900 border-2 border-blue-400 w-10 h-14 flex items-center justify-center">
+                <span className="text-blue-200" style={{ fontSize: '8px' }}>{opponentPlayer.deck.length}</span>
+              </div>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-40 bg-gray-900 border-2 border-blue-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                <p className="text-blue-400 font-bold" style={{ fontSize: '7px' }}>Колода: {opponentPlayer.deck.length} карт</p>
+                <p className="text-gray-400" style={{ fontSize: '6px' }}>Рука: {opponentPlayer.hand.length} карт</p>
+              </div>
             </div>
           </div>
         </div>
@@ -262,27 +284,49 @@ export default function GameBoard({
           <div className="flex items-center gap-2">
             {/* Weapon */}
             {myPlayer.weapon && (
-              <button
-                onClick={() => {
-                  if (isMyTurn) {
-                    setAttackerId('weapon');
-                  }
-                }}
-                className={`bg-gray-800 border-2 px-2 py-1 text-center transition-all ${
-                  attackerId === 'weapon' ? 'border-red-400 scale-110' : 'border-amber-600 hover:border-amber-400'
-                }`}
-              >
-                <div className="text-amber-400" style={{ fontSize: '8px' }}>⚔️ {myPlayer.weapon.name}</div>
-                <div className="text-white" style={{ fontSize: '7px' }}>{myPlayer.weapon.attack}/{myPlayer.weapon.durability}</div>
-              </button>
+              <div className="relative group">
+                <button
+                  onClick={() => {
+                    if (isMyTurn) {
+                      setAttackerId('weapon');
+                    }
+                  }}
+                  className={`bg-gray-800 border-2 px-2 py-1 text-center transition-all ${
+                    attackerId === 'weapon' ? 'border-red-400 scale-110' : 'border-amber-600 hover:border-amber-400'
+                  }`}
+                >
+                  <div className="text-amber-400" style={{ fontSize: '8px' }}>⚔️ {myPlayer.weapon.name}</div>
+                  <div className="text-white" style={{ fontSize: '7px' }}>{myPlayer.weapon.attack}/{myPlayer.weapon.durability}</div>
+                </button>
+                {/* Weapon tooltip */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border-2 border-amber-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                  <p className="text-amber-400 font-bold mb-1" style={{ fontSize: '8px' }}>{myPlayer.weapon.name}</p>
+                  <p className="text-gray-200" style={{ fontSize: '6px' }}>Ваш герой может атаковать этим оружием. При атаке герой получает урон от защищающегося существа.</p>
+                  <div className="flex gap-2 mt-1 text-xs">
+                    <span className="text-yellow-300">⚔ {myPlayer.weapon.attack}</span>
+                    <span className="text-green-300">🛡 {myPlayer.weapon.durability}</span>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Mana */}
-            <ManaCrystal current={myPlayer.currentMana} max={myPlayer.maxMana} />
+            <div className="relative group">
+              <ManaCrystal current={myPlayer.currentMana} max={myPlayer.maxMana} />
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 bg-gray-900 border-2 border-blue-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                <p className="text-blue-400 font-bold" style={{ fontSize: '7px' }}>Мана: {myPlayer.currentMana}/{myPlayer.maxMana}</p>
+              </div>
+            </div>
 
             {/* Deck */}
-            <div className="bg-blue-900 border-2 border-blue-400 w-10 h-14 flex items-center justify-center">
-              <span className="text-blue-200" style={{ fontSize: '8px' }}>{myPlayer.deck.length}</span>
+            <div className="relative group">
+              <div className="bg-blue-900 border-2 border-blue-400 w-10 h-14 flex items-center justify-center">
+                <span className="text-blue-200" style={{ fontSize: '8px' }}>{myPlayer.deck.length}</span>
+              </div>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 bg-gray-900 border-2 border-blue-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                <p className="text-blue-400 font-bold" style={{ fontSize: '7px' }}>Колода: {myPlayer.deck.length} карт</p>
+                <p className="text-gray-400" style={{ fontSize: '6px' }}>Рука: {myPlayer.hand.length} карт</p>
+              </div>
             </div>
 
             {/* Controls */}
@@ -300,18 +344,26 @@ export default function GameBoard({
                 {isMyTurn ? '⏭ КОНЕЦ ХОДА' : '⏳ ХОД ПРОТИВНИКА'}
               </button>
               <div className="flex gap-1">
-                <button
-                  onClick={onHeroPower}
-                  disabled={!isMyTurn || myPlayer.heroPowerUsed || myPlayer.currentMana < 2}
-                  className={`px-2 py-1 border-2 transition-all ${
-                    isMyTurn && !myPlayer.heroPowerUsed && myPlayer.currentMana >= 2
-                      ? 'bg-blue-800 border-blue-400 hover:bg-blue-700 text-blue-200'
-                      : 'bg-gray-700 border-gray-500 text-gray-500 cursor-not-allowed'
-                  }`}
-                  style={{ fontSize: '7px' }}
-                >
-                  ✨ 2💎
-                </button>
+                <div className="relative group">
+                  <button
+                    onClick={onHeroPower}
+                    disabled={!isMyTurn || myPlayer.heroPowerUsed || myPlayer.currentMana < 2}
+                    className={`px-2 py-1 border-2 transition-all ${
+                      isMyTurn && !myPlayer.heroPowerUsed && myPlayer.currentMana >= 2
+                        ? 'bg-blue-800 border-blue-400 hover:bg-blue-700 text-blue-200'
+                        : 'bg-gray-700 border-gray-500 text-gray-500 cursor-not-allowed'
+                    }`}
+                    style={{ fontSize: '7px' }}
+                  >
+                    ✨ 2💎
+                  </button>
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border-2 border-blue-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                    <p className="text-blue-400 font-bold mb-1" style={{ fontSize: '8px' }}>Способность героя</p>
+                    <p className="text-gray-200" style={{ fontSize: '6px' }}>Нанести 1 урон вражескому герою и восстановить 2 здоровья вашему герою.</p>
+                    <p className="text-gray-400 mt-1" style={{ fontSize: '5px' }}>Стоимость: 2 маны • 1 раз за ход</p>
+                  </div>
+                </div>
                 <button
                   onClick={() => setShowEmotions(!showEmotions)}
                   className="px-2 py-1 border-2 bg-purple-800 border-purple-400 hover:bg-purple-700 text-purple-200 transition-all"

@@ -31,27 +31,28 @@ export default function MinionComponent({ minion, isOpponent, isTargetable, isSe
   }, [minion.currentHealth]);
 
   return (
-    <button
-      onClick={onClick}
-      className={`relative border-2 rounded-lg transition-all duration-150 flex flex-col items-center justify-center ${
-        justPlayed ? 'animate-card-play' : ''
-      } ${
-        shaking ? 'animate-shake' : ''
-      } ${
-        isTargetable && isOpponent
-          ? 'border-red-400 hover:bg-red-900/30 cursor-crosshair hover:animate-pulse'
-          : isSelected
-          ? 'border-yellow-400 bg-yellow-900/30 scale-110 ring-2 ring-yellow-300 shadow-lg shadow-yellow-400/40'
-          : canAttack
-          ? 'border-green-400 hover:border-green-300 hover:scale-105 cursor-pointer hover:shadow-lg hover:shadow-green-400/30'
-          : 'border-gray-500'
-      } ${minion.hasDivineShield ? 'ring-2 ring-yellow-200 shadow-lg shadow-yellow-200/30' : ''}`}
-      style={{
-        width: '64px',
-        height: '80px',
-        background: `linear-gradient(to bottom, ${isOpponent ? '#7f1d1d' : '#1e3a5f'}, ${isOpponent ? '#450a0a' : '#0c1e3f'})`,
-      }}
-    >
+    <div className="relative group">
+      <button
+        onClick={onClick}
+        className={`relative border-2 rounded-lg transition-all duration-150 flex flex-col items-center justify-center ${
+          justPlayed ? 'animate-card-play' : ''
+        } ${
+          shaking ? 'animate-shake' : ''
+        } ${
+          isTargetable && isOpponent
+            ? 'border-red-400 hover:bg-red-900/30 cursor-crosshair hover:animate-pulse'
+            : isSelected
+            ? 'border-yellow-400 bg-yellow-900/30 scale-110 ring-2 ring-yellow-300 shadow-lg shadow-yellow-400/40'
+            : canAttack
+            ? 'border-green-400 hover:border-green-300 hover:scale-105 cursor-pointer hover:shadow-lg hover:shadow-green-400/30'
+            : 'border-gray-500'
+        } ${minion.hasDivineShield ? 'ring-2 ring-yellow-200 shadow-lg shadow-yellow-200/30' : ''}`}
+        style={{
+          width: '64px',
+          height: '80px',
+          background: `linear-gradient(to bottom, ${isOpponent ? '#7f1d1d' : '#1e3a5f'}, ${isOpponent ? '#450a0a' : '#0c1e3f'})`,
+        }}
+      >
       {/* Divine Shield glow */}
       {minion.hasDivineShield && (
         <div className="absolute inset-0 border-2 border-yellow-300 rounded-lg animate-pulse opacity-60" />
@@ -98,7 +99,21 @@ export default function MinionComponent({ minion, isOpponent, isTargetable, isSe
       {canAttack && !isOpponent && (
         <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-green-400 rounded-full animate-pulse" />
       )}
-    </button>
+      </button>
+
+      {/* Tooltip */}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border-2 border-amber-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+        <p className="text-amber-400 font-bold mb-1" style={{ fontSize: '8px' }}>{minion.def.name}</p>
+        <p className="text-gray-200" style={{ fontSize: '6px' }}>{minion.def.description}</p>
+        {minion.def.flavorText && (
+          <p className="text-gray-500 italic mt-1" style={{ fontSize: '5px' }}>"{minion.def.flavorText}"</p>
+        )}
+        <div className="flex gap-2 mt-1 text-xs">
+          <span className="text-yellow-300">⚔ {minion.currentAttack}</span>
+          <span className="text-red-300">❤ {minion.currentHealth}/{minion.maxHealth}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
