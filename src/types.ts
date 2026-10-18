@@ -22,6 +22,7 @@ export interface CardDef {
   spellAoEDamage?: number;
   spellAoEHero?: boolean;
   spellDestroy?: boolean;
+  spellDestroyAll?: boolean;
   spellFreeze?: boolean;
   spellSelfDamage?: number;
   spellBuffAllFriendly?: boolean;
