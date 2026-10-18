@@ -394,7 +394,7 @@ export const CARD_DATABASE: CardDef[] = [
     flavorText: 'Когда всё заканчивается — начинается заново.',
     keywords: [],
     spellTarget: 'none',
-    spellDestroy: true,
+    spellDestroyAll: true,
   },
 
   // ============= ОРУЖИЯ (7) =============

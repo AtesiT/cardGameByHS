@@ -94,8 +94,10 @@ export function drawCard(state: GameState, playerIndex: number): CardInstance | 
   const player = state.players[playerIndex];
   if (player.deck.length === 0) {
     player.fatigue++;
-    dealDamageToHero(state, playerIndex, player.fatigue);
-    checkDeath(state);
+    // Усталость не может добить героя — здоровье не уходит в минус
+    const dmg = Math.min(player.fatigue, Math.max(0, player.heroHealth - 1) + player.armor);
+    dealDamageToHero(state, playerIndex, dmg);
+    state.log.push(`${player.name}: колода пуста! Усталость наносит ${player.fatigue} урона.`);
     return null;
   }
   const card = player.deck.pop()!;
@@ -147,7 +149,15 @@ export function playCard(state: GameState, playerIndex: number, instanceId: stri
   const cardInst = player.hand[cardIndex];
   const def = cardInst.def;
 
-  if (def.cost > player.currentMana) return { success: false, error: 'Недостаточно маны' };
+  if (def.cost > player.currentMana) return { success: false, error: `Недостаточно маны (нужно ${def.cost})` };
+
+  // Для карт, требующих цель (заклинания и боевые кличи) — цель обязательна
+  const needsTarget =
+    (def.type === 'spell' && !!def.spellTarget && def.spellTarget !== 'none') ||
+    (def.type === 'minion' && def.battlecryDesc === 'heal_target_5');
+  if (needsTarget && !targetInstanceId) {
+    return { success: false, error: `${def.name}: выберите цель` };
+  }
 
   switch (def.type) {
     case 'minion':
@@ -166,6 +176,14 @@ function playMinion(state: GameState, playerIndex: number, cardIndex: number, ta
   const player = state.players[playerIndex];
   const card = player.hand[cardIndex];
   const def = card.def;
+
+  // Валидация боевого клича ДО списания маны (иначе существо выходит без эффекта)
+  if (def.battlecryDesc === 'heal_target_5') {
+    const targetMinion = targetInstanceId ? findMinion(state, targetInstanceId) : null;
+    if (!targetMinion || getPlayerIndexByMinion(state, targetInstanceId!) !== playerIndex) {
+      return { success: false, error: 'Нужна союзная цель для лечения' };
+    }
+  }
 
   player.currentMana -= def.cost;
   player.hand.splice(cardIndex, 1);
@@ -203,76 +221,103 @@ function playMinion(state: GameState, playerIndex: number, cardIndex: number, ta
 
 function playSpell(state: GameState, playerIndex: number, cardIndex: number, targetInstanceId?: string | null): { success: boolean; error?: string } {
   const player = state.players[playerIndex];
-  const opponent = state.players[playerIndex === 0 ? 1 : 0];
+  const opponentIdx = playerIndex === 0 ? 1 : 0;
+  const opponent = state.players[opponentIdx];
   const card = player.hand[cardIndex];
   const def = card.def;
+  const targetIsFriendlyHero = targetInstanceId === `hero_${playerIndex}`;
+
+  // ==== Валидация цели ДО списания маны (иначе карта «сгорает» без эффекта) ====
+  const needsTarget = !!def.spellTarget && def.spellTarget !== 'none';
+  if (needsTarget && !targetInstanceId) {
+    return { success: false, error: 'Выберите цель для заклинания' };
+  }
+  if (targetInstanceId) {
+    const tMinion = findMinion(state, targetInstanceId);
+    const tHeroIdx = (targetInstanceId === 'hero_0' || targetInstanceId === 'hero_1')
+      ? parseInt(targetInstanceId.split('_')[1]) : -1;
+    if (!tMinion && tHeroIdx === -1) {
+      return { success: false, error: 'Цель не найдена (возможно, уже погибла)' };
+    }
+    const ownerIdx = tMinion ? getPlayerIndexByMinion(state, targetInstanceId) : tHeroIdx;
+    if (def.spellTarget === 'enemy' && ownerIdx === playerIndex) return { success: false, error: 'Цель должна быть вражеской' };
+    if (def.spellTarget === 'friendly' && ownerIdx !== playerIndex) return { success: false, error: 'Цель должна быть вашей' };
+    if (def.spellHeal && !def.spellDamage && def.spellTarget === 'any' && ownerIdx !== playerIndex) {
+      return { success: false, error: 'Лечить можно только свои цели' };
+    }
+  }
 
   player.currentMana -= def.cost;
   player.hand.splice(cardIndex, 1);
   state.log.push(`${player.name} разыгрывает заклинание: ${def.name}`);
 
-  // AOE damage
+  // Самоурон (Кровавый ритуал)
+  if (def.spellSelfDamage) {
+    dealDamageToHero(state, playerIndex, def.spellSelfDamage);
+  }
+
+  // AOE урон по существам противника
   if (def.spellAoEDamage) {
-    for (const minion of opponent.board) {
-      dealDamageToMinion(state, minion, def.spellAoEDamage, playerIndex === 0 ? 1 : 0);
+    for (const minion of [...opponent.board]) {
+      dealDamageToMinion(state, minion, def.spellAoEDamage, opponentIdx);
     }
+    // AOE по герою противника (Залп стрел)
+    if (def.spellAoEHero) {
+      dealDamageToHero(state, opponentIdx, def.spellAoEDamage);
+    }
+    state.log.push(`${def.name}: ${def.spellAoEDamage} урона всем вражеским существам${def.spellAoEHero ? ' и герою' : ''}`);
   }
 
-  // Single target damage
-  if (def.spellDamage && def.spellTarget !== 'none') {
-    if (targetInstanceId) {
-      // Target is a minion
-      const targetMinion = findMinion(state, targetInstanceId);
-      if (targetMinion) {
-        const targetOwner = getPlayerIndexByMinion(state, targetInstanceId);
-        dealDamageToMinion(state, targetMinion, def.spellDamage, targetOwner);
-      } else {
-        // Target is hero
-        if (targetInstanceId === 'hero_0' || targetInstanceId === 'hero_1') {
-          const targetPlayerIdx = parseInt(targetInstanceId.split('_')[1]);
-          dealDamageToHero(state, targetPlayerIdx, def.spellDamage);
-        }
+  // Урон по конкретной цели (any / enemy)
+  if (def.spellDamage && targetInstanceId && (def.spellTarget === 'any' || def.spellTarget === 'enemy')) {
+    const targetMinion = findMinion(state, targetInstanceId);
+    if (targetMinion) {
+      const targetOwner = getPlayerIndexByMinion(state, targetInstanceId);
+      dealDamageToMinion(state, targetMinion, def.spellDamage, targetOwner);
+      if (def.spellFreeze) {
+        targetMinion.canAttack = false;
+        state.log.push(`${targetMinion.def.name} заморожен(а)!`);
       }
+    } else if (targetInstanceId === 'hero_0' || targetInstanceId === 'hero_1') {
+      const targetPlayerIdx = parseInt(targetInstanceId.split('_')[1]);
+      dealDamageToHero(state, targetPlayerIdx, def.spellDamage);
     }
   }
 
-  // Random damage (Молния — 3 урона случайному врагу)
+  // Случайный урон (Молния) — цель не требуется
   if (def.spellDamage && def.spellTarget === 'none' && !def.spellAoEDamage) {
-    const opponentIdx = playerIndex === 0 ? 1 : 0;
     if (opponent.board.length > 0) {
       const target = opponent.board[Math.floor(Math.random() * opponent.board.length)];
       dealDamageToMinion(state, target, def.spellDamage, opponentIdx);
       state.log.push(`${def.name} наносит ${def.spellDamage} урона ${target.def.name}`);
     } else {
       dealDamageToHero(state, opponentIdx, def.spellDamage);
+      state.log.push(`${def.name} наносит ${def.spellDamage} урона вражескому герою`);
     }
   }
 
-  // Heal
+  // Лечение
   if (def.spellHeal) {
-    if (targetInstanceId) {
+    if (def.spellDamage) {
+      // Кража жизни: лечим своего героя за нанесённый урон
+      player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + def.spellHeal);
+      state.log.push(`${player.name} восстанавливает ${def.spellHeal} здоровья`);
+    } else if (targetInstanceId && !targetIsFriendlyHero) {
       const targetMinion = findMinion(state, targetInstanceId);
       if (targetMinion) {
-        targetMinion.currentHealth = Math.min(targetMinion.maxHealth, targetMinion.currentHealth + def.spellHeal);
-      } else if (targetInstanceId === `hero_${playerIndex}`) {
-        player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + def.spellHeal);
+        const healed = Math.min(def.spellHeal, targetMinion.maxHealth - targetMinion.currentHealth);
+        targetMinion.currentHealth += healed;
+        state.log.push(`${targetMinion.def.name} восстанавливает ${healed} здоровья`);
       }
-    } else if (def.spellTarget === 'none' || !def.spellDamage) {
-      // Self heal
-      if (def.spellHeal && !def.spellDamage) {
-        player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + def.spellHeal);
-        state.log.push(`${player.name} восстанавливает ${def.spellHeal} здоровья`);
-      }
+    } else {
+      // Лечение своего героя (self_hero или союзный герой)
+      const healed = Math.min(def.spellHeal, player.maxHeroHealth - player.heroHealth);
+      player.heroHealth += healed;
+      state.log.push(`${player.name} восстанавливает ${healed} здоровья`);
     }
   }
 
-  // Lifesteal spell
-  if (def.spellDamage && def.spellHeal && targetInstanceId) {
-    player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + def.spellHeal);
-    state.log.push(`${player.name} восстанавливает ${def.spellHeal} здоровья`);
-  }
-
-  // Draw cards
+  // Взять карты
   if (def.spellDraw) {
     for (let i = 0; i < def.spellDraw; i++) {
       drawCard(state, playerIndex);
@@ -280,7 +325,7 @@ function playSpell(state: GameState, playerIndex: number, cardIndex: number, tar
     state.log.push(`${player.name} берёт ${def.spellDraw} карт(ы)`);
   }
 
-  // Destroy (targeted - for Казнь)
+  // Уничтожение целевое (Казнь)
   if (def.spellDestroy && def.spellTarget === 'enemy' && targetInstanceId) {
     const targetMinion = findMinion(state, targetInstanceId);
     if (targetMinion) {
@@ -289,22 +334,31 @@ function playSpell(state: GameState, playerIndex: number, cardIndex: number, tar
     }
   }
 
-  // AOE destroy (Апокалипсис)
-  if (def.spellDestroy && def.spellTarget === 'none') {
+  // Уничтожение всех существ (Апокалипсис)
+  if (def.spellDestroyAll) {
     for (const m of state.players[0].board) m.currentHealth = 0;
     for (const m of state.players[1].board) m.currentHealth = 0;
     state.log.push(`${def.name} уничтожает всех существ!`);
   }
 
-  // Buff
-  if (def.buffAttack && def.buffHealth && def.spellTarget === 'friendly' && targetInstanceId) {
+  // Бафф целевому существу (+X/+Y)
+  if ((def.buffAttack || def.buffHealth) && def.spellTarget === 'friendly' && targetInstanceId) {
     const targetMinion = findMinion(state, targetInstanceId);
     if (targetMinion) {
-      targetMinion.currentAttack += def.buffAttack;
-      targetMinion.currentHealth += def.buffHealth;
-      targetMinion.maxHealth += def.buffHealth;
-      state.log.push(`${targetMinion.def.name} получает +${def.buffAttack}/+${def.buffHealth}`);
+      targetMinion.currentAttack += def.buffAttack || 0;
+      targetMinion.currentHealth += def.buffHealth || 0;
+      targetMinion.maxHealth += def.buffHealth || 0;
+      state.log.push(`${targetMinion.def.name} получает +${def.buffAttack || 0}/+${def.buffHealth || 0}`);
     }
+  }
+
+  // Бафф всем союзным существам (Щитовая стена / Дикий рёв)
+  if (def.spellBuffAllFriendly) {
+    for (const m of player.board) {
+      if (def.spellBuffAttack) { m.currentAttack += def.spellBuffAttack; }
+      if (def.spellBuffHealth) { m.currentHealth += def.spellBuffHealth; m.maxHealth += def.spellBuffHealth; }
+    }
+    state.log.push(`${def.name}: усилены все ваши существа`);
   }
 
   checkDeath(state);
@@ -660,10 +714,14 @@ function dealDamageToHero(state: GameState, playerIndex: number, damage: number)
     }
   }
   
-  // Then, apply remaining damage to health
+  // Then, apply remaining damage to health (здоровье не уходит в минус — герой погибает на 0)
   if (remainingDamage > 0) {
-    player.heroHealth -= remainingDamage;
-    state.log.push(`${player.name} получает ${remainingDamage} урона (${player.heroHealth} HP, ${player.armor} брони)`);
+    const applied = Math.min(remainingDamage, player.heroHealth);
+    player.heroHealth -= applied;
+    state.log.push(`${player.name} получает ${applied} урона (${player.heroHealth} HP, ${player.armor} брони)`);
+    if (player.heroHealth <= 0) {
+      state.log.push(`💀 Герой ${player.name} пал!`);
+    }
   }
 }
 
@@ -799,6 +857,122 @@ function executeBattlecry(state: GameState, playerIndex: number, minion: BoardMi
       player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + 5);
       state.log.push(`${minion.def.name} восстанавливает 5 здоровья герою`);
       break;
+    case 'buff_random_friendly_health': {
+      const others = player.board.filter(m => m.instanceId !== minion.instanceId);
+      if (others.length > 0) {
+        const target = others[Math.floor(Math.random() * others.length)];
+        target.currentHealth += 1;
+        target.maxHealth += 1;
+        state.log.push(`${minion.def.name}: +1 здоровье существу ${target.def.name}`);
+      }
+      break;
+    }
+    case 'buff_random_friendly_1_1': {
+      const others = player.board.filter(m => m.instanceId !== minion.instanceId);
+      if (others.length > 0) {
+        const target = others[Math.floor(Math.random() * others.length)];
+        target.currentAttack += 1;
+        target.currentHealth += 1;
+        target.maxHealth += 1;
+        state.log.push(`${minion.def.name}: +1/+1 существу ${target.def.name}`);
+      }
+      break;
+    }
+    case 'conditional_buff_attack':
+      if (player.heroHealth < 15) {
+        minion.currentAttack += 2;
+        state.log.push(`${minion.def.name}: ярость! +2 атаки`);
+      }
+      break;
+    case 'deal_1_random_enemy':
+      if (opponent.board.length > 0) {
+        const target = opponent.board[Math.floor(Math.random() * opponent.board.length)];
+        dealDamageToMinion(state, target, 1, opponentIdx);
+        state.log.push(`${minion.def.name} наносит 1 урона ${target.def.name}`);
+      } else {
+        dealDamageToHero(state, opponentIdx, 1);
+      }
+      break;
+    case 'draw_1':
+      drawCard(state, playerIndex);
+      state.log.push(`${minion.def.name}: ${player.name} берёт карту`);
+      break;
+    case 'destroy_random_friendly': {
+      const others = player.board.filter(m => m.instanceId !== minion.instanceId);
+      if (others.length > 0) {
+        const target = others[Math.floor(Math.random() * others.length)];
+        target.currentHealth = 0;
+        state.log.push(`${minion.def.name} уничтожает союзника ${target.def.name}!`);
+      }
+      break;
+    }
+    case 'copy_random_enemy': {
+      if (opponent.board.length > 0 && player.board.length < 7) {
+        const src2 = opponent.board[Math.floor(Math.random() * opponent.board.length)];
+        const copy: BoardMinion = {
+          instanceId: nextInstanceId(),
+          cardId: src2.cardId,
+          def: src2.def,
+          currentAttack: src2.currentAttack,
+          currentHealth: src2.currentHealth,
+          maxHealth: src2.maxHealth,
+          canAttack: false,
+          hasAttacked: false,
+          attacksThisTurn: 0,
+          hasDivineShield: src2.hasDivineShield,
+          isPoisonous: src2.isPoisonous,
+          hasTaunt: src2.hasTaunt,
+          hasWindfury: false,
+          hasLifesteal: src2.hasLifesteal,
+          hasCharge: false,
+          enchantments: [],
+        };
+        player.board.push(copy);
+        state.log.push(`${minion.def.name} копирует ${src2.def.name}!`);
+      }
+      break;
+    }
+    case 'steal_random_card': {
+      if (opponent.hand.length > 0 && player.hand.length < 10) {
+        const stolen = opponent.hand.splice(Math.floor(Math.random() * opponent.hand.length), 1)[0];
+        player.hand.push(stolen);
+        state.log.push(`${minion.def.name} крадёт карту ${stolen.def.name}!`);
+      }
+      break;
+    }
+    case 'give_windfury_random': {
+      const others = player.board.filter(m => m.instanceId !== minion.instanceId && !m.hasWindfury);
+      if (others.length > 0) {
+        const target = others[Math.floor(Math.random() * others.length)];
+        target.hasWindfury = true;
+        state.log.push(`${minion.def.name}: ${target.def.name} получает Ветер ветра`);
+      }
+      break;
+    }
+    case 'give_divine_shield_random': {
+      const others = player.board.filter(m => m.instanceId !== minion.instanceId && !m.hasDivineShield);
+      if (others.length > 0) {
+        const target = others[Math.floor(Math.random() * others.length)];
+        target.hasDivineShield = true;
+        state.log.push(`${minion.def.name}: ${target.def.name} получает Божественный щит`);
+      }
+      break;
+    }
+    case 'choose_buff':
+      minion.currentAttack += 2;
+      minion.currentHealth += 2;
+      minion.maxHealth += 2;
+      state.log.push(`${minion.def.name}: метаморфоза +2/+2`);
+      break;
+    case 'destroy_all_other_minions':
+      for (const m of state.players[0].board) {
+        if (m.instanceId !== minion.instanceId) m.currentHealth = 0;
+      }
+      for (const m of state.players[1].board) {
+        if (m.instanceId !== minion.instanceId) m.currentHealth = 0;
+      }
+      state.log.push(`${minion.def.name} уничтожает всех остальных существ!`);
+      break;
   }
 }
 
@@ -877,12 +1051,18 @@ function checkDeath(state: GameState): void {
     }
   }
 
-  // Check hero death
-  for (let pi = 0; pi < 2; pi++) {
-    if (state.players[pi].heroHealth <= 0 && state.winner === null) {
-      state.winner = pi === 0 ? 1 : 0;
+  // Check hero death (если оба героя погибли одновременно — побеждает активный игрок)
+  if (state.winner === null) {
+    const p0Dead = state.players[0].heroHealth <= 0;
+    const p1Dead = state.players[1].heroHealth <= 0;
+    if (p0Dead || p1Dead) {
+      if (p0Dead && p1Dead) {
+        state.winner = state.currentPlayerIndex === 0 ? 0 : 1;
+      } else {
+        state.winner = p0Dead ? 1 : 0;
+      }
       state.phase = 'gameOver';
-      state.log.push(`${state.players[state.winner].name} побеждает!`);
+      state.log.push(`🏆 ${state.players[state.winner].name} побеждает!`);
     }
   }
 }
