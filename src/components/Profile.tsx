@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { loadStats, loadAchievements, getCurrentRank, getNextRank, RANKS, PlayerStats, Achievement } from '../data/progression';
 import { HERO_CLASSES } from '../data/classes';
 

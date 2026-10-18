@@ -117,28 +117,6 @@ export interface GameAction {
 // ============= NETWORK TYPES =============
 export type EmotionType = 'greetings' | 'thanks' | 'well_played' | 'oops' | 'threat' | 'laughter' | 'wow' | 'sadness';
 
-export interface NetworkMessage {
-  type: string;
-  payload?: any;
-}
-
-export interface RoomInfo {
-  id: string;
-  hostName: string;
-  hostReady: boolean;
-  guestName?: string;
-  guestReady: boolean;
-}
-
 // ============= UI TYPES =============
 export type Screen = 'menu' | 'lobby' | 'waiting' | 'game' | 'collection' | 'result' | 'deckbuilder' | 'profile' | 'settings';
 export type GameMode = 'hotseat' | 'ai' | 'online';
-
-export interface AnimationEvent {
-  type: 'card_played' | 'attack' | 'damage' | 'heal' | 'death' | 'draw' | 'buff' | 'spell';
-  sourceId?: string;
-  targetId?: string;
-  value?: number;
-  cardId?: string;
-  duration?: number;
-}

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { CARD_DATABASE } from '../data/cards';
 import { CLASS_CARDS, HERO_CLASSES, HeroClass } from '../data/classes';
 import { loadDecks, saveDecks } from '../data/progression';
-import { CardDef } from '../types';
 
 interface Props {
   onBack: () => void;

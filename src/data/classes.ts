@@ -263,26 +263,4 @@ export const CLASS_CARDS: CardDef[] = [
   },
 ];
 
-// ============= НЕЙТРАЛЬНЫЕ ТОКЕНЫ =============
-export const HERO_POWER_TOKENS: CardDef[] = [
-  {
-    id: 'token_silver_hand', name: 'Серебряный новобранец', type: 'minion', cost: 0, rarity: 'common',
-    attack: 1, health: 1, description: '', flavorText: '', keywords: [],
-  },
-  {
-    id: 'token_totem_healing', name: 'Тотем исцеления', type: 'minion', cost: 0, rarity: 'common',
-    attack: 0, health: 2, description: 'В конце хода: +1 HP всем союзным.', flavorText: '', keywords: [],
-  },
-  {
-    id: 'token_totem_fire', name: 'Огненный тотем', type: 'minion', cost: 0, rarity: 'common',
-    attack: 1, health: 1, description: '', flavorText: '', keywords: [],
-  },
-  {
-    id: 'token_totem_stone', name: 'Каменный тотем', type: 'minion', cost: 0, rarity: 'common',
-    attack: 0, health: 3, description: 'Провокация.', flavorText: '', keywords: ['taunt'],
-  },
-  {
-    id: 'token_totem_wrath', name: 'Тотем гнева', type: 'minion', cost: 0, rarity: 'common',
-    attack: 2, health: 1, description: '', flavorText: '', keywords: [],
-  },
-];
+
