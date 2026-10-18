@@ -147,11 +147,21 @@ export default function GameBoard({
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden px-scanlines" style={{
-      backgroundImage: `url(${TABLE_BACKGROUND})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-    }}>
+    <div 
+      className="min-h-screen flex flex-col relative overflow-hidden px-scanlines"
+      style={{
+        backgroundImage: `url(${TABLE_BACKGROUND})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+      onClick={() => {
+        // Cancel selection when clicking on background
+        if (targeting || attackerId) {
+          onCancelTargeting();
+          setAttackerId(null);
+        }
+      }}
+    >
       {/* Dark overlay for readability */}
       <div className="absolute inset-0 bg-black/30" />
 

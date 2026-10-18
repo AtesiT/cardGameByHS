@@ -718,9 +718,13 @@ function executeBattlecry(state: GameState, playerIndex: number, minion: BoardMi
       }
       break;
     case 'destroy_all_minions':
-      for (const m of state.players[0].board) m.currentHealth = 0;
-      for (const m of state.players[1].board) m.currentHealth = 0;
-      state.log.push(`${minion.def.name} уничтожает ВСЕХ существ!`);
+      for (const m of state.players[0].board) {
+        if (m.instanceId !== minion.instanceId) m.currentHealth = 0;
+      }
+      for (const m of state.players[1].board) {
+        if (m.instanceId !== minion.instanceId) m.currentHealth = 0;
+      }
+      state.log.push(`${minion.def.name} уничтожает всех остальных существ!`);
       break;
     case 'buff_per_damaged':
       let damaged = 0;
@@ -780,6 +784,20 @@ function executeBattlecry(state: GameState, playerIndex: number, minion: BoardMi
     case 'heal_hero_2':
       player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + 2);
       state.log.push(`${minion.def.name} восстанавливает 2 здоровья герою`);
+      break;
+    case 'deal_2_random_enemy':
+      if (opponent.board.length > 0) {
+        const target = opponent.board[Math.floor(Math.random() * opponent.board.length)];
+        dealDamageToMinion(state, target, 2, opponentIdx);
+        state.log.push(`${minion.def.name} наносит 2 урона ${target.def.name}`);
+      } else {
+        dealDamageToHero(state, opponentIdx, 2);
+        state.log.push(`${minion.def.name} наносит 2 урона вражескому герою`);
+      }
+      break;
+    case 'heal_hero_5':
+      player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + 5);
+      state.log.push(`${minion.def.name} восстанавливает 5 здоровья герою`);
       break;
   }
 }

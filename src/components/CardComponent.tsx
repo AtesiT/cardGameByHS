@@ -94,9 +94,9 @@ export default function CardComponent({ card, canPlay = false, isSelected = fals
         </button>
 
         {/* Pixel tooltip */}
-        <div className="px-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-52">
-          <p className="text-yellow-400 font-bold mb-1" style={{ fontSize: '8px' }}>{def.name}</p>
-          <p className="text-gray-200 mb-1" style={{ fontSize: '6px' }}>{def.description}</p>
+        <div className="px-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-56 bg-gray-900 border-2 border-amber-500 rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+          <p className="text-amber-400 font-bold mb-1" style={{ fontSize: '9px' }}>{def.name}</p>
+          <p className="text-gray-200 mb-1" style={{ fontSize: '7px' }}>{def.description}</p>
           {def.flavorText && (
             <p className="text-gray-500 italic" style={{ fontSize: '5px' }}>"{def.flavorText}"</p>
           )}
