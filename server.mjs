@@ -111,6 +111,13 @@ class GameRoom {
       this.guest.send(msg);
     }
   }
+
+  sendTo(playerIndex, message) {
+    const ws = playerIndex === 0 ? this.host : this.guest;
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify(message));
+    }
+  }
 }
 
 // Простой игровой движок
@@ -391,7 +398,15 @@ async function startServer() {
           return;
         }
         joinRoom.addPlayer(ws, data.playerName);
-        joinRoom.broadcast({ type: 'player_joined', playerName: data.playerName });
+        // Отправляем гостю подтверждение подключения
+        ws.send(JSON.stringify({ 
+          type: 'room_joined', 
+          roomId: data.roomId,
+          hostName: joinRoom.hostName,
+          playerIndex: ws.playerIndex
+        }));
+        // Уведомляем хоста о подключении гостя
+        joinRoom.broadcast({ type: 'player_joined', playerName: data.playerName }, ws);
         broadcastRoomList(wss);
         break;
 
@@ -428,6 +443,22 @@ async function startServer() {
         if (turnRoom && turnRoom.gameState) {
           gameEngine.endTurn(turnRoom.gameState);
           turnRoom.broadcast({ type: 'state_update', state: turnRoom.gameState });
+        }
+        break;
+
+      case 'hero_power':
+        const heroPowerRoom = rooms.get(ws.roomId);
+        if (heroPowerRoom && heroPowerRoom.gameState) {
+          // Simple hero power: 1 damage to enemy hero, heal 2
+          const player = heroPowerRoom.gameState.players[ws.playerIndex];
+          const opponent = heroPowerRoom.gameState.players[ws.playerIndex === 0 ? 1 : 0];
+          if (!player.heroPowerUsed && player.currentMana >= 2) {
+            player.currentMana -= 2;
+            player.heroPowerUsed = true;
+            opponent.heroHealth -= 1;
+            player.heroHealth = Math.min(player.maxHeroHealth, player.heroHealth + 2);
+            heroPowerRoom.broadcast({ type: 'state_update', state: heroPowerRoom.gameState });
+          }
         }
         break;
     }

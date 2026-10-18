@@ -41,6 +41,76 @@ export default function App() {
     audio.init();
   }, []);
 
+  // Global WebSocket message handler
+  useEffect(() => {
+    if (!ws) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📨 Received:', data.type, data);
+
+        switch (data.type) {
+          case 'room_created':
+            setRoomId(data.roomId);
+            setIsHost(true);
+            setScreen('waiting');
+            break;
+
+          case 'room_joined':
+            setRoomId(data.roomId);
+            setIsHost(false);
+            setScreen('waiting');
+            break;
+
+          case 'player_joined':
+            console.log('✅ Игрок подключился:', data.playerName);
+            break;
+
+          case 'player_disconnected':
+            console.log('❌ Игрок отключился');
+            if (screen === 'game') {
+              alert('Противник отключился от игры');
+              setScreen('menu');
+              setGameState(null);
+            }
+            break;
+
+          case 'game_start':
+            console.log('🎮 Игра началась!');
+            setGameState(data.state);
+            setPlayerView(isHost ? 0 : 1);
+            setGameMode('online');
+            setScreen('game');
+            startGame(data.state);
+            setGameState({ ...data.state });
+            setShowTurnBanner(true);
+            setTurnBannerText(isHost ? '⚡ Ваш ход!' : '⏳ Ход противника...');
+            audio.playTurnStart();
+            setTimeout(() => setShowTurnBanner(false), 1500);
+            break;
+
+          case 'state_update':
+            console.log('🔄 Обновление состояния');
+            setGameState(data.state);
+            break;
+
+          case 'error':
+            alert(data.message);
+            break;
+        }
+      } catch (e) {
+        console.error('Ошибка обработки сообщения:', e);
+      }
+    };
+
+    ws.addEventListener('message', handleMessage);
+
+    return () => {
+      ws.removeEventListener('message', handleMessage);
+    };
+  }, [ws, isHost, screen]);
+
   // WebSocket connection for multiplayer
   const connectWebSocket = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -73,71 +143,17 @@ export default function App() {
   const handleCreateRoom = useCallback(() => {
     if (!ws) return;
     ws.send(JSON.stringify({ type: 'create_room', playerName }));
-    
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'room_created') {
-          setRoomId(data.roomId);
-          setIsHost(true);
-          setScreen('waiting');
-          ws.removeEventListener('message', handleMessage);
-        }
-      } catch (e) {
-        console.error('Error:', e);
-      }
-    };
-    
-    ws.addEventListener('message', handleMessage);
   }, [ws, playerName]);
 
   const handleJoinRoom = useCallback((roomIdToJoin: string) => {
     if (!ws) return;
     ws.send(JSON.stringify({ type: 'join_room', roomId: roomIdToJoin, playerName }));
-    
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'player_joined' || data.type === 'room_created') {
-          setRoomId(roomIdToJoin);
-          setIsHost(false);
-          setScreen('waiting');
-          ws.removeEventListener('message', handleMessage);
-        } else if (data.type === 'error') {
-          alert(data.message);
-          ws.removeEventListener('message', handleMessage);
-        }
-      } catch (e) {
-        console.error('Error:', e);
-      }
-    };
-    
-    ws.addEventListener('message', handleMessage);
   }, [ws, playerName]);
 
   const handleStartGameFromWaiting = useCallback(() => {
     if (!ws) return;
     ws.send(JSON.stringify({ type: 'start_game' }));
-    
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'game_start') {
-          setGameState(data.state);
-          setPlayerView(isHost ? 0 : 1);
-          setGameMode('online');
-          setScreen('game');
-          startGame(data.state);
-          setGameState({ ...data.state });
-          ws.removeEventListener('message', handleMessage);
-        }
-      } catch (e) {
-        console.error('Error:', e);
-      }
-    };
-    
-    ws.addEventListener('message', handleMessage);
-  }, [ws, isHost]);
+  }, [ws]);
 
   const handleLeaveRoom = useCallback(() => {
     if (ws) {
@@ -196,12 +212,18 @@ export default function App() {
       return;
     }
 
-    // Play without target
+    // Online mode - send action to server
+    if (gameMode === 'online' && ws) {
+      ws.send(JSON.stringify({ type: 'play_card', instanceId }));
+      audio.playCardPlay();
+      return;
+    }
+
+    // Local mode - play card locally
     const result = playCard(gameState, playerView, instanceId, null);
     if (result.success) {
       if (card.def.type === 'spell') {
         audio.playCardPlaySpell();
-        // Show spell effect
         setShowTurnBanner(true);
         setTurnBannerText(`✨ ${card.def.name}!`);
         setTimeout(() => setShowTurnBanner(false), 800);
@@ -211,7 +233,7 @@ export default function App() {
       setGameState({ ...gameState });
       checkAITurn(gameState);
     }
-  }, [gameState, playerView, animating]);
+  }, [gameState, playerView, animating, gameMode, ws]);
 
   const handleTargetSelect = useCallback((targetId: string, isHero: boolean, heroPlayerIndex?: number) => {
     if (!gameState || !selectedCard) return;
@@ -219,7 +241,6 @@ export default function App() {
     let targetInstanceId: string;
     
     if (isHero) {
-      // If spell can target friendly, allow own hero; otherwise enemy hero
       if (card?.def.spellTarget === 'friendly' || card?.def.spellHeal) {
         targetInstanceId = `hero_${heroPlayerIndex ?? playerView}`;
       } else {
@@ -229,6 +250,16 @@ export default function App() {
       targetInstanceId = targetId;
     }
     
+    // Online mode - send action to server
+    if (gameMode === 'online' && ws) {
+      ws.send(JSON.stringify({ type: 'play_card', instanceId: selectedCard, targetId: targetInstanceId }));
+      audio.playCardPlaySpell();
+      setSelectedCard(null);
+      setTargeting(false);
+      return;
+    }
+    
+    // Local mode
     const result = playCard(gameState, playerView, selectedCard, targetInstanceId);
     if (result.success) {
       audio.playCardPlaySpell();
@@ -237,10 +268,19 @@ export default function App() {
     }
     setSelectedCard(null);
     setTargeting(false);
-  }, [gameState, selectedCard, playerView]);
+  }, [gameState, selectedCard, playerView, gameMode, ws]);
 
   const handleAttack = useCallback((attackerId: string, targetId: string, targetIsHero: boolean) => {
     if (!gameState || animating) return;
+    
+    // Online mode - send action to server
+    if (gameMode === 'online' && ws) {
+      ws.send(JSON.stringify({ type: 'attack', attackerId, targetId, targetIsHero }));
+      audio.playAttack();
+      return;
+    }
+    
+    // Local mode
     const opponentIdx = playerView === 0 ? 1 : 0;
     const result = attack(gameState, playerView, attackerId, targetId, targetIsHero, opponentIdx);
     if (result.success) {
@@ -254,43 +294,42 @@ export default function App() {
         checkAITurn(gameState);
       }, 400);
     }
-  }, [gameState, playerView, animating]);
+  }, [gameState, playerView, animating, gameMode, ws]);
 
   const handleEndTurn = useCallback(() => {
     if (!gameState) return;
     if (gameState.phase === 'gameOver') return;
-    setAnimating(false); // Reset any stuck animation
+    setAnimating(false);
     audio.playClick();
     
-    const newView = playerView === 0 ? 1 : 0;
+    // Online mode - send action to server
+    if (gameMode === 'online' && ws) {
+      ws.send(JSON.stringify({ type: 'end_turn' }));
+      return;
+    }
     
-    // End turn and switch player
+    // Local mode
+    const newView = playerView === 0 ? 1 : 0;
     endTurn(gameState);
     setPlayerView(newView as 0 | 1);
     setGameState({ ...gameState });
 
-    // Handle different game modes
     if (gameMode === 'hotseat' && gameState.turnNumber > 1) {
-      // Show pass device screen for hotseat (not on first turn)
       setShowPassDevice(true);
     } else if (gameMode === 'ai' && newView === 1) {
-      // AI turn - show banner and execute AI after short delay
       setShowTurnBanner(true);
       setTurnBannerText('🤖 Ход противника...');
       audio.playTurnStart();
       
-      // AI acts after 800ms delay (not too long, not too short)
       setTimeout(() => {
         aiTurn(gameState);
         setGameState({ ...gameState });
         
-        // Check if game is over
         if (gameState.phase === 'gameOver') {
           checkGameOver(gameState);
           return;
         }
         
-        // Return control to player
         setPlayerView(0);
         setShowTurnBanner(true);
         setTurnBannerText('⚡ Ваш ход!');
@@ -298,22 +337,30 @@ export default function App() {
         setTimeout(() => setShowTurnBanner(false), 1200);
       }, 800);
     } else {
-      // Normal turn transition
       setShowTurnBanner(true);
       setTurnBannerText(`${gameState.players[newView].name} — Ваш ход!`);
       audio.playTurnStart();
       setTimeout(() => setShowTurnBanner(false), 1200);
     }
-  }, [gameState, playerView, animating, gameMode]);
+  }, [gameState, playerView, animating, gameMode, ws]);
 
   const handleHeroPower = useCallback(() => {
     if (!gameState || animating) return;
+    
+    // Online mode - send action to server
+    if (gameMode === 'online' && ws) {
+      ws.send(JSON.stringify({ type: 'hero_power' }));
+      audio.playHeal();
+      return;
+    }
+    
+    // Local mode
     const result = useHeroPower(gameState, playerView);
     if (result.success) {
       audio.playHeal();
       setGameState({ ...gameState });
     }
-  }, [gameState, playerView, animating]);
+  }, [gameState, playerView, animating, gameMode, ws]);
 
   const handleEmotion = useCallback((type: EmotionType) => {
     audio.playEmotion();
@@ -323,6 +370,15 @@ export default function App() {
 
   const handleWeaponAttack = useCallback((targetId: string, targetIsHero: boolean) => {
     if (!gameState || animating) return;
+    
+    // Online mode - send action to server
+    if (gameMode === 'online' && ws) {
+      ws.send(JSON.stringify({ type: 'attack', attackerId: 'weapon', targetId, targetIsHero }));
+      audio.playAttack();
+      return;
+    }
+    
+    // Local mode
     const opponentIdx = playerView === 0 ? 1 : 0;
     const result = attack(gameState, playerView, 'weapon', targetId, targetIsHero, opponentIdx);
     if (result.success) {
@@ -330,7 +386,7 @@ export default function App() {
       setGameState({ ...gameState });
       checkGameOver(gameState);
     }
-  }, [gameState, playerView, animating]);
+  }, [gameState, playerView, animating, gameMode, ws]);
 
   const checkGameOver = (state: GameState) => {
     if (state.phase === 'gameOver' && state.winner !== null) {

@@ -19,8 +19,10 @@ export default function WaitingRoom({ ws, roomId, playerName, onStartGame, onLea
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'player_joined') {
+          console.log('✅ Гость подключился:', data.playerName);
           setGuestName(data.playerName);
         } else if (data.type === 'player_disconnected') {
+          console.log('❌ Гость отключился');
           setGuestName(null);
         }
       } catch (e) {
